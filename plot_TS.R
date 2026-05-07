@@ -5,31 +5,29 @@ setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD")
 # ============================================================
 
 base_dir <- "results"
-out_dir  <- file.path(base_dir, "Figures", "times_series")
+out_dir  <- file.path("Figures", "times_series")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 day_starts_at_zero <- TRUE
 
-year_min <- 1990
-year_max <- 2022
+year_min <- 1991
+year_max <- 2025
 
-plot_year_min <- 1990
-plot_year_max <- 2022
+plot_year_min <- 1991
+plot_year_max <- 2025
 
 stats_to_make <- c("mean", "min", "max")
 
 species_map <- tribble(
   ~species,   ~colname,
   "Beech",    "Fag_syl",
-  "Oak_pub",  "Que_pub",
   "Oak_rob",  "Que_rob",
   "Pine",     "Pin_syl",
   "Spruce",   "Pic_abi"
 )
 
 cb_palette <- c(
-  Oak_pub  = "darkorange",
-  Oak_rob  = "#F0E442",
+  Oak  = "darkorange",
   Beech    = "dodgerblue",
   Spruce   = "green4",
   Pine     = "purple1"
@@ -58,7 +56,7 @@ monthly_vars <- tribble(
   "mevap.out", "Evapotranspiration",           "Evapotranspiration (mm/month)", "mevap",
   "mgpp.out",  "Gross Primary Production",     "GPP (kgC/m²/month)",            "mgpp",
   "mnpp.out",  "Net Primary Production",       "NPP (kgC/m²/month)",            "mnpp",
-  "mlai.out",  "Leaf Area Index",              "LAI (m²/m²)",                  "mlai"
+  "mlai.out",  "Leaf Area Index",              "LAI (m²/m²)",                   "mlai"
 )
 
 yearly_vars <- tribble(

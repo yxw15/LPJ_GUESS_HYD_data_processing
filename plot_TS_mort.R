@@ -1,8 +1,12 @@
 # ============================================================
 # Annual time series from the LAST DAY of each year
 # Mortality-related variables + kappa variables
-# Species are folders under results/
-# No mean / no min / no max
+#
+# Data location:
+#   results/species_folder/*.out
+#
+# Figure output location:
+#   Figures/annual_last_day_mort_kappa/
 #
 # Outputs:
 #   1) all species together:
@@ -23,35 +27,36 @@ suppressPackageStartupMessages({
 # ---------------------------
 # Settings
 # ---------------------------
-base_dir <- "results"
-out_dir  <- file.path(base_dir, "Figures", "annual_last_day_mort_kappa")
+results_dir <- file.path("results")
+out_dir     <- file.path("Figures", "annual_last_day_mort_kappa")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
-year_min <- 1990
+year_min <- 1991
 year_max <- 2022
 
-plot_year_min <- 1990
+plot_year_min <- 1991
 plot_year_max <- 2022
 
 species_vec <- c("Beech", "Oak_pub", "Oak_rob", "Pine", "Spruce")
 
 cb_palette <- c(
-  Oak_pub  = "darkorange",
-  Oak_rob  = "#F0E442",
-  Beech    = "dodgerblue",
-  Spruce   = "green4",
-  Pine     = "purple1"
+  Oak_pub = "darkorange",
+  Oak_rob = "#F0E442",
+  Beech   = "dodgerblue",
+  Spruce  = "green4",
+  Pine    = "purple1"
 )
 
 vars_to_plot <- tribble(
-  ~file,               ~var_label,                         ~ylab,                              ~stem,
-  "mort.out",          "Total mortality",                  "Total mortality",                  "mort",
-  "mort_cav_day.out",  "Hydraulic-failure mortality",      "Hydraulic mortality",              "mort_cav_day",
-  "mort_min.out",      "Background mortality",             "Background mortality",             "mort_min",
-  "mort_greff.out",    "Growth-efficiency mortality",      "Growth-efficiency mortality",      "mort_greff",
-  "kappa_s_min.out",   "Maximum value of cavitated xylems","Maximum value of cavitated xylems","kappa_s_min",
-  "kappa_s_today.out", "Fraction of cavitated xylem",      "Fraction of cavitated xylem",      "kappa_s_today"
+  ~file,               ~var_label,                          ~ylab,                               ~stem,
+  "mort.out",          "Total mortality",                   "Total mortality",                   "mort",
+  "mort_cav_day.out",  "Hydraulic-failure mortality",       "Hydraulic mortality",               "mort_cav_day",
+  "mort_min.out",      "Background mortality",              "Background mortality",              "mort_min",
+  "mort_greff.out",    "Growth-efficiency mortality",       "Growth-efficiency mortality",       "mort_greff",
+  "kappa_s_min.out",   "Maximum value of cavitated xylems", "Maximum value of cavitated xylems", "kappa_s_min",
+  "kappa_s_today.out", "Fraction of cavitated xylem",       "Fraction of cavitated xylem",       "kappa_s_today"
 )
+
 # ============================================================
 # Read one file for one species
 # Assumes columns 3 and 4 are: year, day
@@ -82,12 +87,12 @@ read_species_file <- function(filepath, species_name, year_min, year_max) {
 # ============================================================
 # Read the same variable across all species folders
 # ============================================================
-read_all_species <- function(filename, base_dir, species_vec, year_min, year_max) {
+read_all_species <- function(filename, species_vec, year_min, year_max, results_dir) {
   
   out_list <- list()
   
   for (sp in species_vec) {
-    filepath <- file.path(base_dir, sp, filename)
+    filepath <- file.path(results_dir, sp, filename)
     
     if (!file.exists(filepath)) {
       warning("File not found: ", filepath)
@@ -185,10 +190,10 @@ for (i in seq_len(nrow(vars_to_plot))) {
   
   df_raw <- read_all_species(
     filename    = this_file,
-    base_dir    = base_dir,
     species_vec = species_vec,
     year_min    = year_min,
-    year_max    = year_max
+    year_max    = year_max,
+    results_dir = results_dir
   )
   
   if (nrow(df_raw) == 0) {

@@ -2,6 +2,9 @@
 # LPJ-GUESS post-processing
 # mort_cav_day.out vs kappa_s_min.out
 #
+# Data location:
+#   results/species_folder/*.out
+#
 # Outputs:
 #   1) RAW scatter:
 #      - combined ALL species
@@ -30,8 +33,9 @@ suppressPackageStartupMessages({
 # ---------------------------
 setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD")
 
-base_dir <- getwd()
-out_dir  <- file.path(base_dir, "Figures", "mort_cav_day_vs_kappa_s_min")
+base_dir    <- getwd()
+results_dir <- file.path(base_dir, "results")
+out_dir     <- file.path(base_dir, "Figures", "mort_cav_day_vs_kappa_s_min")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 # If LPJ-GUESS Day starts at 0 (often true), keep TRUE
@@ -111,7 +115,7 @@ apply_year_filter <- function(df) {
 }
 
 read_daily_value <- function(species, colname, filename, value_name) {
-  f <- file.path(base_dir, "results", species, filename)
+  f <- file.path(results_dir, species, filename)
   
   if (!file.exists(f)) {
     warning("Missing file: ", f)
@@ -119,7 +123,7 @@ read_daily_value <- function(species, colname, filename, value_name) {
   }
   
   df <- tryCatch(
-    read.table(f, header = TRUE),
+    read.table(f, header = TRUE, check.names = FALSE),
     error = function(e) {
       warning("Could not read file: ", f, " | ", conditionMessage(e))
       return(NULL)
@@ -128,8 +132,16 @@ read_daily_value <- function(species, colname, filename, value_name) {
   
   if (is.null(df)) return(NULL)
   
+  # LPJ-GUESS files often have year/day in columns 3 and 4
+  if (ncol(df) < 4) {
+    warning("File has fewer than 4 columns: ", f)
+    return(NULL)
+  }
+  
+  names(df)[3:4] <- c("Year", "Day")
+  
   if (!all(c("Year", "Day") %in% names(df))) {
-    warning("File missing Year/Day columns: ", f)
+    warning("Could not assign/find Year/Day columns in: ", f)
     return(NULL)
   }
   
@@ -144,7 +156,11 @@ read_daily_value <- function(species, colname, filename, value_name) {
   if (is.null(col_use)) return(NULL)
   
   out <- df %>%
-    mutate(Date = as_guess_date(Year, Day, day_starts_at_zero)) %>%
+    mutate(
+      Year = as.numeric(Year),
+      Day  = as.numeric(Day),
+      Date = as_guess_date(Year, Day, day_starts_at_zero)
+    ) %>%
     transmute(
       Date,
       Species = species,
@@ -178,7 +194,7 @@ species_results <- pmap(
   function(species, colname) {
     message("Processing species: ", species)
     
-    mort <- read_daily_value(species, colname, "mort_cav_day.out", "mort_cav_day")
+    mort  <- read_daily_value(species, colname, "mort_cav_day.out", "mort_cav_day")
     kappa <- read_daily_value(species, colname, "kappa_s_min.out", "kappa_s_min")
     
     if (is.null(mort) || is.null(kappa)) {
@@ -204,10 +220,11 @@ if (length(species_results) == 0) {
   stop(
     "No valid merged data could be created.\n",
     "Please check:\n",
-    "1) files exist under /<species>/mort_cav_day.out and /<species>/kappa_s_min.out\n",
-    "2) files contain Year and Day columns\n",
-    "3) the target data columns exist or at least one numeric column is available\n",
-    "4) Date values match between the two files"
+    "1) files exist under results/<species>/mort_cav_day.out and results/<species>/kappa_s_min.out\n",
+    "2) files contain at least 4 columns\n",
+    "3) columns 3 and 4 correspond to Year and Day\n",
+    "4) the target data columns exist or at least one numeric column is available\n",
+    "5) Date values match between the two files"
   )
 }
 

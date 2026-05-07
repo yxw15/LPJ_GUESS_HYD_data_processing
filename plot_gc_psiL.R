@@ -4,7 +4,7 @@
 #   1) gc      (leaf conductance)   vs psi_leaf
 #   2) gcwater (canopy conductance) vs psi_leaf
 #
-# Outputs for each timescale and season selection:
+# Outputs for each time selection:
 #   - combined ALL species
 #   - facet by species
 #
@@ -13,16 +13,16 @@
 #   - monthly mean
 #   - yearly mean
 #
-# Season selections:
+# Time selections:
 #   - whole year
-#   - July-August only
+#   - July, and August of 2003, 2011, 2015, 2018, 2022
 #
 # Notes:
 #   - facet plots use free x and free y scales
 #   - smooth lines keep species color
 # ============================================================
-setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD")
 
+setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD")
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -36,24 +36,26 @@ suppressPackageStartupMessages({
 # ---------------------------
 # Settings
 # ---------------------------
+base_dir    <- getwd()
+results_dir <- file.path(base_dir, "results")
 
-out_dir_whole  <- file.path(base_dir, "Figures", "gc_gcwater_vs_psileaf_WholeYear")
-out_dir_julaug <- file.path(base_dir, "Figures", "gc_gcwater_vs_psileaf_JulAug")
+out_dir_whole   <- file.path(base_dir, "Figures", "gc_gcwater_vs_psileaf_WholeYear")
+out_dir_2015gs  <- file.path(base_dir, "Figures", "gc_gcwater_vs_psileaf_2015_Jul01_to_Sep15")
 
 dir.create(out_dir_whole,  recursive = TRUE, showWarnings = FALSE)
-dir.create(out_dir_julaug, recursive = TRUE, showWarnings = FALSE)
+dir.create(out_dir_2015gs, recursive = TRUE, showWarnings = FALSE)
 
 day_starts_at_zero <- TRUE
 
-# Optional: restrict years
+# Optional: restrict years globally
 year_min <- NULL
 year_max <- NULL
 
 # Binning settings
-bin_width_mpa <- 0.05
-min_n_bin_daily   <- 0
-min_n_bin_monthly <- 0
-min_n_bin_yearly  <- 0
+bin_width_mpa      <- 0.05
+min_n_bin_daily    <- 1
+min_n_bin_monthly  <- 1
+min_n_bin_yearly   <- 1
 
 # ---------------------------
 # Species mapping + colors
@@ -79,7 +81,8 @@ cb_palette <- c(
 # Helpers
 # ---------------------------
 as_guess_date <- function(Year, Day, day_starts_at_zero = TRUE) {
-  as.Date(if (day_starts_at_zero) Day else Day - 1, origin = paste0(Year, "-01-01"))
+  offset <- if (day_starts_at_zero) Day else Day - 1
+  as.Date(offset, origin = paste0(Year, "-01-01"))
 }
 
 theme_clean <- function() {
@@ -91,35 +94,74 @@ theme_clean <- function() {
     )
 }
 
-pick_numeric_col <- function(df, wanted, file_for_msg = "") {
+pick_numeric_col <- function(df, wanted = NULL, file_for_msg = "") {
   if (!is.null(wanted) && wanted %in% names(df)) return(wanted)
+  
   candidates <- setdiff(names(df), c("Year", "Day", "Lon", "Lat"))
   numeric_candidates <- candidates[sapply(df[candidates], is.numeric)]
+  
   if (length(numeric_candidates) == 0) {
-    stop("No numeric column found in ", file_for_msg, ". Available: ", paste(names(df), collapse = ", "))
+    stop(
+      "No numeric column found in ", file_for_msg,
+      ". Available: ", paste(names(df), collapse = ", ")
+    )
   }
-  message("Note: using numeric column '", numeric_candidates[1], "' from ", basename(file_for_msg))
+  
+  message(
+    "Note: wanted column '", wanted, "' not found in ", basename(file_for_msg),
+    ". Using first numeric column: '", numeric_candidates[1], "'"
+  )
+  
   numeric_candidates[1]
 }
 
 read_daily_value <- function(species, colname, filename, value_name) {
-  f <- file.path(base_dir, "results", species, filename)
+  f <- file.path(results_dir, species, filename)
+  
   if (!file.exists(f)) {
     warning("Missing file: ", f)
     return(NULL)
   }
   
-  df <- read.table(f, header = TRUE)
+  df <- tryCatch(
+    read.table(f, header = TRUE, check.names = FALSE),
+    error = function(e) {
+      warning("Could not read file: ", f, " | ", conditionMessage(e))
+      return(NULL)
+    }
+  )
   
-  if (!all(c("Year", "Day") %in% names(df))) {
-    stop("File missing Year/Day columns: ", f)
+  if (is.null(df)) return(NULL)
+  
+  if (ncol(df) < 4) {
+    warning("File has fewer than 4 columns: ", f)
+    return(NULL)
   }
   
-  col_use <- pick_numeric_col(df, colname, f)
+  # LPJ-GUESS files often store year/day in columns 3 and 4
+  names(df)[3:4] <- c("Year", "Day")
+  
+  col_use <- tryCatch(
+    pick_numeric_col(df, colname, f),
+    error = function(e) {
+      warning(conditionMessage(e))
+      return(NULL)
+    }
+  )
+  
+  if (is.null(col_use)) return(NULL)
   
   df %>%
-    mutate(Date = as_guess_date(Year, Day, day_starts_at_zero)) %>%
-    transmute(Date, Species = species, !!value_name := .data[[col_use]])
+    mutate(
+      Year = as.numeric(Year),
+      Day  = as.numeric(Day),
+      Date = as_guess_date(Year, Day, day_starts_at_zero)
+    ) %>%
+    transmute(
+      Date,
+      Species = species,
+      !!value_name := .data[[col_use]]
+    )
 }
 
 read_pair_psileaf_y <- function(species, colname, y_file, y_name) {
@@ -128,11 +170,18 @@ read_pair_psileaf_y <- function(species, colname, y_file, y_name) {
   
   if (is.null(psi) || is.null(yy)) return(NULL)
   
-  inner_join(psi, yy, by = c("Date", "Species"))
+  joined <- inner_join(psi, yy, by = c("Date", "Species"))
+  
+  if (nrow(joined) == 0) {
+    message("Join returned 0 rows for species: ", species, " and file: ", y_file)
+    return(NULL)
+  }
+  
+  joined
 }
 
-apply_time_filter <- function(df, months_keep = NULL) {
-  if (is.null(df)) return(NULL)
+apply_time_filter <- function(df, start_date = NULL, end_date = NULL) {
+  if (is.null(df) || nrow(df) == 0) return(df)
   
   if (!is.null(year_min)) {
     df <- df %>% filter(lubridate::year(Date) >= year_min)
@@ -142,8 +191,12 @@ apply_time_filter <- function(df, months_keep = NULL) {
     df <- df %>% filter(lubridate::year(Date) <= year_max)
   }
   
-  if (!is.null(months_keep)) {
-    df <- df %>% filter(lubridate::month(Date) %in% months_keep)
+  if (!is.null(start_date)) {
+    df <- df %>% filter(Date >= as.Date(start_date))
+  }
+  
+  if (!is.null(end_date)) {
+    df <- df %>% filter(Date <= as.Date(end_date))
   }
   
   df
@@ -153,6 +206,8 @@ apply_time_filter <- function(df, months_keep = NULL) {
 # Aggregation
 # ---------------------------
 aggregate_monthly_mean <- function(df, y_col) {
+  if (is.null(df) || nrow(df) == 0) return(df[0, ])
+  
   df %>%
     mutate(
       Year  = lubridate::year(Date),
@@ -169,6 +224,8 @@ aggregate_monthly_mean <- function(df, y_col) {
 }
 
 aggregate_yearly_mean <- function(df, y_col) {
+  if (is.null(df) || nrow(df) == 0) return(df[0, ])
+  
   df %>%
     mutate(Year = lubridate::year(Date)) %>%
     group_by(Species, Year) %>%
@@ -216,10 +273,12 @@ plot_combined_binned <- function(raw_df, binned_df, y_col, title, ylab, filename
     geom_smooth(
       data = binned_df,
       aes(x = x_mean, y = y_mean, color = Species, fill = Species),
+      method = "gam",
+      formula = y ~ s(x, k = 5),
       se = TRUE, linewidth = 1, alpha = 0.20
     ) +
-    scale_color_manual(values = cb_palette) +
-    scale_fill_manual(values = cb_palette) +
+    scale_color_manual(values = cb_palette, drop = FALSE) +
+    scale_fill_manual(values = cb_palette, drop = FALSE) +
     labs(
       title = title,
       x = expression(paste("Leaf water potential ", psi[leaf], " (MPa)")),
@@ -249,11 +308,13 @@ plot_facet_binned <- function(raw_df, binned_df, y_col, title, ylab, filename, o
     geom_smooth(
       data = binned_df,
       aes(x = x_mean, y = y_mean, color = Species, fill = Species),
+      method = "gam",
+      formula = y ~ s(x, k = 5),
       se = TRUE, linewidth = 1, alpha = 0.20
     ) +
     facet_wrap(~Species, ncol = 2, scales = "free") +
-    scale_color_manual(values = cb_palette) +
-    scale_fill_manual(values = cb_palette) +
+    scale_color_manual(values = cb_palette, drop = FALSE) +
+    scale_fill_manual(values = cb_palette, drop = FALSE) +
     labs(
       title = title,
       x = expression(paste("Leaf water potential ", psi[leaf], " (MPa)")),
@@ -270,7 +331,17 @@ plot_facet_binned <- function(raw_df, binned_df, y_col, title, ylab, filename, o
 # Generic wrapper
 # ---------------------------
 make_relationship_plots <- function(df, y_col, label_name, ylab, prefix, min_n_bin, out_dir, file_tag) {
+  if (is.null(df) || nrow(df) == 0) {
+    warning("No data available for: ", file_tag)
+    return(list(all = NULL, facet = NULL, binned = NULL))
+  }
+  
   binned <- bin_by_x(df, "psi_leaf", y_col, bin_width_mpa, min_n_bin)
+  
+  if (nrow(binned) == 0) {
+    warning("No binned data available for: ", file_tag)
+    return(list(all = NULL, facet = NULL, binned = binned))
+  }
   
   p_all <- plot_combined_binned(
     raw_df    = df,
@@ -298,30 +369,45 @@ make_relationship_plots <- function(df, y_col, label_name, ylab, prefix, min_n_b
 # ============================================================
 # MAIN: Build full daily datasets once
 # ============================================================
-df_gcwater_daily_full <- pmap_dfr(
+species_gcwater <- pmap(
   list(species_map$species, species_map$colname),
   ~ read_pair_psileaf_y(..1, ..2, y_file = "dgcwater.out", y_name = "gcwater")
-) %>%
+)
+
+species_gc <- pmap(
+  list(species_map$species, species_map$colname),
+  ~ read_pair_psileaf_y(..1, ..2, y_file = "dgc.out", y_name = "gc")
+)
+
+species_gcwater <- compact(species_gcwater)
+species_gc      <- compact(species_gc)
+
+if (length(species_gcwater) == 0) {
+  stop("No valid gcwater dataset could be created.")
+}
+
+if (length(species_gc) == 0) {
+  stop("No valid gc dataset could be created.")
+}
+
+df_gcwater_daily_full <- bind_rows(species_gcwater) %>%
   filter(is.finite(psi_leaf), is.finite(gcwater)) %>%
   mutate(Species = factor(Species, levels = species_map$species))
 
-df_gc_daily_full <- pmap_dfr(
-  list(species_map$species, species_map$colname),
-  ~ read_pair_psileaf_y(..1, ..2, y_file = "dgc.out", y_name = "gc")
-) %>%
+df_gc_daily_full <- bind_rows(species_gc) %>%
   filter(is.finite(psi_leaf), is.finite(gc)) %>%
   mutate(Species = factor(Species, levels = species_map$species))
 
 # ============================================================
-# Function to run one season selection
+# Function to run one time selection
 # ============================================================
-run_all_plots <- function(df_gcwater_full, df_gc_full, months_keep, season_label, out_dir, file_tag) {
+run_all_plots <- function(df_gcwater_full, df_gc_full, start_date, end_date, season_label, out_dir, file_tag) {
   
   # ---------------------------
   # Filter daily data
   # ---------------------------
-  df_gcwater_daily <- apply_time_filter(df_gcwater_full, months_keep = months_keep)
-  df_gc_daily      <- apply_time_filter(df_gc_full,      months_keep = months_keep)
+  df_gcwater_daily <- apply_time_filter(df_gcwater_full, start_date = start_date, end_date = end_date)
+  df_gc_daily      <- apply_time_filter(df_gc_full,      start_date = start_date, end_date = end_date)
   
   # ---------------------------
   # Monthly mean datasets
@@ -421,33 +507,35 @@ run_all_plots <- function(df_gcwater_full, df_gc_full, months_keep, season_label
 }
 
 # ============================================================
-# Run 1: Whole year
+# Run 1: Whole period
 # ============================================================
 res_whole <- run_all_plots(
   df_gcwater_full = df_gcwater_daily_full,
   df_gc_full      = df_gc_daily_full,
-  months_keep     = NULL,
-  season_label    = "whole year",
+  start_date      = NULL,
+  end_date        = NULL,
+  season_label    = "whole period",
   out_dir         = out_dir_whole,
   file_tag        = "WholeYear"
 )
 
 # ============================================================
-# Run 2: July-August only
+# Run 2: 2015-07-01 to 2015-09-15
 # ============================================================
-res_julaug <- run_all_plots(
+res_2015_gs <- run_all_plots(
   df_gcwater_full = df_gcwater_daily_full,
   df_gc_full      = df_gc_daily_full,
-  months_keep     = c(7, 8),
-  season_label    = "July-August",
-  out_dir         = out_dir_julaug,
-  file_tag        = "JulAug"
+  start_date      = "2015-07-01",
+  end_date        = "2015-09-15",
+  season_label    = "2015 Jul 1 to Sep 15",
+  out_dir         = out_dir_2015gs,
+  file_tag        = "2015Jul01toSep15"
 )
 
 # ============================================================
 # show in RStudio
 # ============================================================
-# Whole year
+# Whole period
 res_whole$gcwater_daily$all
 res_whole$gcwater_daily$facet
 res_whole$gc_daily$all
@@ -463,26 +551,29 @@ res_whole$gcwater_yearly$facet
 res_whole$gc_yearly$all
 res_whole$gc_yearly$facet
 
-# July-August
-res_julaug$gcwater_daily$all
-res_julaug$gcwater_daily$facet
-res_julaug$gc_daily$all
-res_julaug$gc_daily$facet
+# 2015-07-01 to 2015-09-15
+res_2015_gs$gcwater_daily$all
+res_2015_gs$gcwater_daily$facet
+res_2015_gs$gc_daily$all
+res_2015_gs$gc_daily$facet
 
-res_julaug$gcwater_monthly$all
-res_julaug$gcwater_monthly$facet
-res_julaug$gc_monthly$all
-res_julaug$gc_monthly$facet
+res_2015_gs$gcwater_monthly$all
+res_2015_gs$gcwater_monthly$facet
+res_2015_gs$gc_monthly$all
+res_2015_gs$gc_monthly$facet
 
-res_julaug$gcwater_yearly$all
-res_julaug$gcwater_yearly$facet
-res_julaug$gc_yearly$all
-res_julaug$gc_yearly$facet
+res_2015_gs$gcwater_yearly$all
+res_2015_gs$gcwater_yearly$facet
+res_2015_gs$gc_yearly$all
+res_2015_gs$gc_yearly$facet
 
 # ============================================================
-# check the dataframe 
+# check the dataframe
 # ============================================================
 res_whole$gcwater_daily$binned
 res_whole$gcwater_monthly$binned
 res_whole$gcwater_yearly$binned
 
+res_2015_gs$gcwater_daily$binned
+res_2015_gs$gcwater_monthly$binned
+res_2015_gs$gcwater_yearly$binned

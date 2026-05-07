@@ -2,6 +2,9 @@
 # LPJ-GUESS post-processing
 # kappa_s_today.out vs dpsixylem.out
 #
+# Data location:
+#   results/species_folder/*.out
+#
 # Outputs:
 #   1) RAW scatter:
 #      - combined ALL species
@@ -30,8 +33,9 @@ suppressPackageStartupMessages({
 # ---------------------------
 setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD")
 
-base_dir <- getwd()
-out_dir  <- file.path(base_dir, "Figures", "kappa_s_today_vs_psixylem")
+base_dir    <- getwd()
+results_dir <- file.path(base_dir, "results")
+out_dir     <- file.path(base_dir, "Figures", "kappa_s_today_vs_dpsixylem")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 # If LPJ-GUESS Day starts at 0 (often true), keep TRUE
@@ -43,7 +47,7 @@ year_max <- NULL
 
 # Binning settings
 bin_width_psixylem <- 0.01
-min_n_bin <- 0
+min_n_bin <- 1
 
 # ---------------------------
 # Species mapping + colors
@@ -57,7 +61,6 @@ species_map <- tribble(
   "Spruce",   "Pic_abi"
 )
 
-
 cb_palette <- c(
   Oak_pub = "darkorange",
   Oak_rob = "#F0E442",
@@ -70,10 +73,8 @@ cb_palette <- c(
 # Helpers
 # ---------------------------
 as_guess_date <- function(Year, Day, day_starts_at_zero = TRUE) {
-  as.Date(
-    if (day_starts_at_zero) Day else Day - 1,
-    origin = paste0(Year, "-01-01")
-  )
+  offset <- if (day_starts_at_zero) Day else Day - 1
+  as.Date(offset, origin = paste0(Year, "-01-01"))
 }
 
 theme_clean <- function() {
@@ -85,7 +86,7 @@ theme_clean <- function() {
     )
 }
 
-pick_numeric_col <- function(df, wanted, file_for_msg = "") {
+pick_numeric_col <- function(df, wanted = NULL, file_for_msg = "") {
   if (!is.null(wanted) && wanted %in% names(df)) return(wanted)
   
   candidates <- setdiff(names(df), c("Year", "Day", "Lon", "Lat"))
@@ -99,38 +100,67 @@ pick_numeric_col <- function(df, wanted, file_for_msg = "") {
   }
   
   message(
-    "Note: using numeric column '", numeric_candidates[1],
-    "' from ", basename(file_for_msg)
+    "Note: wanted column '", wanted, "' not found in ", basename(file_for_msg),
+    ". Using first numeric column: '", numeric_candidates[1], "'"
   )
+  
   numeric_candidates[1]
 }
 
+apply_year_filter <- function(df) {
+  if (is.null(df) || nrow(df) == 0) return(df)
+  if (!is.null(year_min)) df <- df %>% filter(lubridate::year(Date) >= year_min)
+  if (!is.null(year_max)) df <- df %>% filter(lubridate::year(Date) <= year_max)
+  df
+}
+
 read_daily_value <- function(species, colname, filename, value_name) {
-  f <- file.path(base_dir, "results", species, filename)
+  f <- file.path(results_dir, species, filename)
   
   if (!file.exists(f)) {
     warning("Missing file: ", f)
     return(NULL)
   }
   
-  df <- read.table(f, header = TRUE)
+  df <- tryCatch(
+    read.table(f, header = TRUE, check.names = FALSE),
+    error = function(e) {
+      warning("Could not read file: ", f, " | ", conditionMessage(e))
+      return(NULL)
+    }
+  )
   
-  if (!all(c("Year", "Day") %in% names(df))) {
-    stop("File missing Year/Day columns: ", f)
+  if (is.null(df)) return(NULL)
+  
+  if (ncol(df) < 4) {
+    warning("File has fewer than 4 columns: ", f)
+    return(NULL)
   }
   
-  col_use <- pick_numeric_col(df, colname, f)
+  # LPJ-GUESS files often store year/day in columns 3 and 4
+  names(df)[3:4] <- c("Year", "Day")
+  
+  col_use <- tryCatch(
+    pick_numeric_col(df, colname, f),
+    error = function(e) {
+      warning(conditionMessage(e))
+      return(NULL)
+    }
+  )
+  
+  if (is.null(col_use)) return(NULL)
   
   df %>%
-    mutate(Date = as_guess_date(Year, Day, day_starts_at_zero)) %>%
-    transmute(Date, Species = species, !!value_name := .data[[col_use]])
-}
-
-apply_year_filter <- function(df) {
-  if (is.null(df)) return(NULL)
-  if (!is.null(year_min)) df <- df %>% filter(lubridate::year(Date) >= year_min)
-  if (!is.null(year_max)) df <- df %>% filter(lubridate::year(Date) <= year_max)
-  df
+    mutate(
+      Year = as.numeric(Year),
+      Day  = as.numeric(Day),
+      Date = as_guess_date(Year, Day, day_starts_at_zero)
+    ) %>%
+    transmute(
+      Date,
+      Species = species,
+      !!value_name := .data[[col_use]]
+    )
 }
 
 # ---- Bin by x ----
@@ -149,27 +179,63 @@ bin_by_x <- function(df, x_col, y_col, bin_width, min_n = 1) {
 }
 
 # ---------------------------
-# Build dataset
+# Build dataset safely
 # ---------------------------
-df_kappa_psixylem <- pmap_dfr(
+species_results <- pmap(
   list(species_map$species, species_map$colname),
-  ~{
-    kappa     <- read_daily_value(..1, ..2, "kappa_s_today.out", "kappa_s_today")
-    psixylem  <- read_daily_value(..1, ..2, "dpsixylem.out", "psixylem")
+  function(species, colname) {
+    message("Processing species: ", species)
     
-    if (is.null(kappa) || is.null(psixylem)) return(NULL)
+    kappa <- read_daily_value(species, colname, "kappa_s_today.out", "kappa_s_today")
+    dpsi  <- read_daily_value(species, colname, "dpsixylem.out", "dpsixylem")
     
-    inner_join(kappa, psixylem, by = c("Date", "Species"))
+    if (is.null(kappa) || is.null(dpsi)) {
+      message("  -> skipped (missing or unreadable input)")
+      return(NULL)
+    }
+    
+    joined <- inner_join(kappa, dpsi, by = c("Date", "Species"))
+    
+    if (nrow(joined) == 0) {
+      message("  -> skipped (join returned 0 rows)")
+      return(NULL)
+    }
+    
+    message("  -> joined rows: ", nrow(joined))
+    joined
   }
-) %>%
-  filter(is.finite(kappa_s_today), is.finite(psixylem)) %>%
+)
+
+species_results <- compact(species_results)
+
+if (length(species_results) == 0) {
+  stop(
+    "No valid merged data could be created.\n",
+    "Please check:\n",
+    "1) files exist under results/<species>/kappa_s_today.out and results/<species>/dpsixylem.out\n",
+    "2) files contain at least 4 columns\n",
+    "3) columns 3 and 4 correspond to Year and Day\n",
+    "4) the target species columns exist or at least one numeric column is available\n",
+    "5) Date values match between the two files"
+  )
+}
+
+df_kappa_psixylem <- bind_rows(species_results) %>%
+  filter(is.finite(kappa_s_today), is.finite(dpsixylem)) %>%
   mutate(Species = factor(Species, levels = species_map$species)) %>%
   apply_year_filter()
+
+if (nrow(df_kappa_psixylem) == 0) {
+  stop(
+    "Merged dataset exists but has 0 rows after filtering.\n",
+    "Check year_min/year_max and whether kappa_s_today / dpsixylem contain finite values."
+  )
+}
 
 # Save merged raw daily data
 write.csv(
   df_kappa_psixylem,
-  file.path(out_dir, "kappa_s_today_vs_psixylem_merged_daily.csv"),
+  file.path(out_dir, "kappa_s_today_vs_dpsixylem_merged_daily.csv"),
   row.names = FALSE
 )
 
@@ -178,13 +244,13 @@ write.csv(
 # ---------------------------
 p_kappa_psixylem_raw_all <- ggplot(
   df_kappa_psixylem,
-  aes(x = psixylem, y = kappa_s_today, color = Species)
+  aes(x = dpsixylem, y = kappa_s_today, color = Species)
 ) +
   geom_point(alpha = 0.25, size = 1) +
-  scale_color_manual(values = cb_palette) +
+  scale_color_manual(values = cb_palette, drop = FALSE) +
   labs(
-    title = "Cavitation fraction vs xylem water potential (RAW)",
-    x = "Xylem water potential (psixylem)",
+    title = "Cavitation fraction vs dpsixylem (RAW)",
+    x = "dpsixylem",
     y = "Cavitation fraction (kappa_s_today)",
     color = NULL
   ) +
@@ -192,7 +258,7 @@ p_kappa_psixylem_raw_all <- ggplot(
   theme(legend.position = "top")
 
 ggsave(
-  file.path(out_dir, "kappa_s_today_vs_psixylem_scatter_RAW_ALL.png"),
+  file.path(out_dir, "kappa_s_today_vs_dpsixylem_scatter_RAW_ALL.png"),
   p_kappa_psixylem_raw_all,
   width = 10,
   height = 6,
@@ -201,21 +267,21 @@ ggsave(
 
 p_kappa_psixylem_raw_facet <- ggplot(
   df_kappa_psixylem,
-  aes(x = psixylem, y = kappa_s_today, color = Species)
+  aes(x = dpsixylem, y = kappa_s_today, color = Species)
 ) +
   geom_point(alpha = 0.25, size = 1) +
   facet_wrap(~Species, ncol = 2, scales = "free") +
-  scale_color_manual(values = cb_palette) +
+  scale_color_manual(values = cb_palette, drop = FALSE) +
   labs(
-    title = "Cavitation fraction vs xylem water potential (RAW) — species panels",
-    x = "Xylem water potential (psixylem)",
+    title = "Cavitation fraction vs dpsixylem (RAW) — species panels",
+    x = "dpsixylem",
     y = "Cavitation fraction (kappa_s_today)"
   ) +
   theme_clean() +
   theme(legend.position = "none")
 
 ggsave(
-  file.path(out_dir, "kappa_s_today_vs_psixylem_scatter_RAW_facet.png"),
+  file.path(out_dir, "kappa_s_today_vs_dpsixylem_scatter_RAW_facet.png"),
   p_kappa_psixylem_raw_facet,
   width = 11,
   height = 6,
@@ -227,16 +293,20 @@ ggsave(
 # ---------------------------
 b_kappa_psixylem <- bin_by_x(
   df = df_kappa_psixylem,
-  x_col = "psixylem",
+  x_col = "dpsixylem",
   y_col = "kappa_s_today",
   bin_width = bin_width_psixylem,
   min_n = min_n_bin
 )
 
+if (nrow(b_kappa_psixylem) == 0) {
+  stop("Binned dataset has 0 rows. Try reducing min_n_bin or check the data range.")
+}
+
 # Save binned data
 write.csv(
   b_kappa_psixylem,
-  file.path(out_dir, "kappa_s_today_vs_psixylem_binned_0p01.csv"),
+  file.path(out_dir, "kappa_s_today_vs_dpsixylem_binned_0p01.csv"),
   row.names = FALSE
 )
 
@@ -249,7 +319,7 @@ write.csv(
 p_kappa_psixylem_binned_all <- ggplot() +
   geom_point(
     data = df_kappa_psixylem,
-    aes(x = psixylem, y = kappa_s_today),
+    aes(x = dpsixylem, y = kappa_s_today),
     color = "grey60",
     alpha = 0.08,
     size = 0.5
@@ -262,15 +332,17 @@ p_kappa_psixylem_binned_all <- ggplot() +
   geom_smooth(
     data = b_kappa_psixylem,
     aes(x = x_mean, y = y_mean, color = Species, fill = Species),
+    method = "gam",
+    formula = y ~ s(x, k = 6),
     se = TRUE,
     linewidth = 1,
     alpha = 0.20
   ) +
-  scale_color_manual(values = cb_palette) +
-  scale_fill_manual(values = cb_palette) +
+  scale_color_manual(values = cb_palette, drop = FALSE) +
+  scale_fill_manual(values = cb_palette, drop = FALSE) +
   labs(
-    title = "Cavitation fraction vs xylem water potential (binned x = 0.01) — ALL species",
-    x = "Xylem water potential (psixylem)",
+    title = "Cavitation fraction vs dpsixylem (binned x = 0.01) — ALL species",
+    x = "dpsixylem",
     y = "Cavitation fraction (kappa_s_today)",
     color = NULL,
     fill = NULL
@@ -279,7 +351,7 @@ p_kappa_psixylem_binned_all <- ggplot() +
   theme(legend.position = "top")
 
 ggsave(
-  file.path(out_dir, "kappa_s_today_vs_psixylem_binned0.01_smooth_ALL.png"),
+  file.path(out_dir, "kappa_s_today_vs_dpsixylem_binned0.01_smooth_ALL.png"),
   p_kappa_psixylem_binned_all,
   width = 11,
   height = 6,
@@ -289,7 +361,7 @@ ggsave(
 p_kappa_psixylem_binned_facet <- ggplot() +
   geom_point(
     data = df_kappa_psixylem,
-    aes(x = psixylem, y = kappa_s_today),
+    aes(x = dpsixylem, y = kappa_s_today),
     color = "grey60",
     alpha = 0.08,
     size = 0.5
@@ -302,23 +374,25 @@ p_kappa_psixylem_binned_facet <- ggplot() +
   geom_smooth(
     data = b_kappa_psixylem,
     aes(x = x_mean, y = y_mean, color = Species, fill = Species),
+    method = "gam",
+    formula = y ~ s(x, k = 6),
     se = TRUE,
     linewidth = 1,
     alpha = 0.20
   ) +
   facet_wrap(~Species, ncol = 2, scales = "free") +
-  scale_color_manual(values = cb_palette) +
-  scale_fill_manual(values = cb_palette) +
+  scale_color_manual(values = cb_palette, drop = FALSE) +
+  scale_fill_manual(values = cb_palette, drop = FALSE) +
   labs(
-    title = "Cavitation fraction vs xylem water potential (binned x = 0.01) — species panels",
-    x = "Xylem water potential (psixylem)",
+    title = "Cavitation fraction vs dpsixylem (binned x = 0.01) — species panels",
+    x = "dpsixylem",
     y = "Cavitation fraction (kappa_s_today)"
   ) +
   theme_clean() +
   theme(legend.position = "none")
 
 ggsave(
-  file.path(out_dir, "kappa_s_today_vs_psixylem_binned0.01_smooth_facet.png"),
+  file.path(out_dir, "kappa_s_today_vs_dpsixylem_binned0.01_smooth_facet.png"),
   p_kappa_psixylem_binned_facet,
   width = 11,
   height = 6,
@@ -335,7 +409,7 @@ cat("Number of binned rows:", nrow(b_kappa_psixylem), "\n")
 # ---------------------------
 # Show in RStudio
 # ---------------------------
-p_kappa_psixylem_raw_all
-p_kappa_psixylem_raw_facet
-p_kappa_psixylem_binned_all
-p_kappa_psixylem_binned_facet
+print(p_kappa_psixylem_raw_all)
+print(p_kappa_psixylem_raw_facet)
+print(p_kappa_psixylem_binned_all)
+print(p_kappa_psixylem_binned_facet)
