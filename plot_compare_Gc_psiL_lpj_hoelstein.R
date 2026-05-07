@@ -40,6 +40,7 @@ base_theme <- theme_minimal() +
     legend.position   = "bottom",
     legend.text       = element_text(size = 13),
     plot.title        = element_text(hjust = 0.5, size = 18, face = "bold"),
+    plot.subtitle     = element_text(hjust = 0.5, size = 14),
     axis.title        = element_text(size = 16),
     axis.text         = element_text(size = 12),
     strip.text        = element_text(size = 14, face = "bold"),
@@ -71,7 +72,7 @@ climate_filter_dates <- lpj_base %>%
   unique()
 
 climate_txt <- paste(
-  "Temp > 14°C,", "Precip < 1 mm,", "Rad > 150 W/m²,", "VPD > 0.3 kPa"
+  "temperature > 14°C,", "precipitation < 1 mm,", "global radiation > 150 W/m²,", "VPD > 0.3 kPa"
 )
 
 # ==============================================================================
@@ -191,17 +192,24 @@ data_obs_full_std <- obs_filtered_climate %>%
 # ==============================================================================
 
 p_gc_psi_common <- ggplot(combined_data) +
-  geom_point(aes(x = psiL_md, y = gc_obs), color = "black", alpha = 0.6, size = pt_size) +
+  # 1. Midday: Changed shape to 2 (unfilled triangle)
+  geom_point(aes(x = psiL_md, y = gc_obs), shape = 2, color = "black", alpha = 0.8, size = pt_size) +
+  
+  # 2. Predawn: Stays as black +
   geom_point(aes(x = psiL_pd, y = gc_obs), color = "black", shape = 3, alpha = 0.8, size = pt_size) +
-  geom_point(aes(x = psiL, y = gc_mmod, color = species), alpha = 0.7, size = pt_size) +
+  
+  # 3. LPJ: Stays as solid colored points
+  geom_point(aes(x = psiL, y = gc_mmod, color = species), alpha = 1, size = pt_size + 0.5) +
+  
   facet_wrap(~species, ncol = 2) +
   scale_color_manual(values = cb_palette) +
   labs(
-    title = "Conductance vs Leaf Water Potential (Common Time)",
-    subtitle = paste0(climate_txt, " | June–Sept\nMidday = black dots | Predawn = black + | LPJ = colored"),
-    x = expression(paste(Psi[L], " (MPa)")),
-    y = expression(G[c]~(mol~m^{-2}~s^{-1})),
-    color = "LPJ Species"
+    title = "canopy conductance vs leaf water potential (common time)",
+    # Updated subtitle to reflect the new triangle shape
+    subtitle = paste0(climate_txt, " | June–September\nmidday = open triangle | predawn = black + | LPJ = colored"),
+    x = expression(Psi["   leaf"]~"(MPa)"),
+    y = expression(G[c]~(mmol~m^{-2}~s^{-1})),
+    color = ""
   ) +
   base_theme
 
@@ -212,20 +220,27 @@ print(p_gc_psi_common)
 # ==============================================================================
 
 p_gc_psi_full <- ggplot() +
+  # 1. Midday: Changed shape to 2 (open triangle)
   geom_point(data = obs_filtered_climate, aes(x = psiL_md, y = gc_obs), 
-             color = "black", alpha = 0.35, size = pt_size) +
+             shape = 2, color = "black", alpha = 0.8, size = pt_size) +
+  
+  # 2. Predawn: Stays as black + (shape 3)
   geom_point(data = obs_filtered_climate, aes(x = psiL_pd, y = gc_obs), 
-             color = "black", shape = 3, alpha = 0.5, size = pt_size) +
+             color = "black", shape = 3, alpha = 0.8, size = pt_size) +
+  
+  # 3. LPJ: Colored points
   geom_point(data = data_full_model, aes(x = psiL, y = gc_mmod, color = species), 
              alpha = 0.45, size = pt_size) +
+  
   facet_wrap(~species, ncol = 2) +
   scale_color_manual(values = cb_palette) +
   labs(
-    title = "Conductance vs Leaf Water Potential (Full Time Series)",
-    subtitle = "Midday = black dots | Predawn = black + | LPJ = colored",
-    x = expression(paste(Psi[L], " (MPa)")),
-    y = expression(G[c]~(mol~m^{-2}~s^{-1})),
-    color = "LPJ Species"
+    title = "canopy conductance vs leaf water potential (full time series)",
+    # Updated subtitle to match visual style
+    subtitle = "midday = open triangle | predawn = black + | LPJ = colored",
+    x = expression(Psi["   leaf"]~"(MPa)"),
+    y = expression(G[c]~(mmol~m^{-2}~s^{-1})),
+    color = ""
   ) +
   base_theme
 
@@ -236,18 +251,27 @@ print(p_gc_psi_full)
 # ==============================================================================
 
 p_gc_rel_common <- ggplot(combined_std) +
-  geom_point(aes(x = psiL_md, y = gc_rel_obs), color = "black", alpha = 0.6, size = pt_size) +
-  geom_point(aes(x = psiL_pd, y = gc_rel_obs), color = "black", shape = 3, alpha = 0.8, size = pt_size) +
-  geom_point(aes(x = psiL, y = gc_rel_mod, color = species), alpha = 0.7, size = pt_size) +
+  # 1. Midday: Open triangle (shape 2)
+  geom_point(aes(x = psiL_md, y = gc_rel_obs), 
+             shape = 2, color = "black", alpha = 0.8, size = pt_size) +
+  
+  # 2. Predawn: Black + (shape 3)
+  geom_point(aes(x = psiL_pd, y = gc_rel_obs), 
+             color = "black", shape = 3, alpha = 0.8, size = pt_size) +
+  
+  # 3. LPJ: Colored solid points
+  geom_point(aes(x = psiL, y = gc_rel_mod, color = species), 
+             alpha = 1, size = pt_size + 0.5) +
+  
   facet_wrap(~species, ncol = 2) +
   scale_color_manual(values = cb_palette) +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
   labs(
-    title = "Relative Conductance vs Leaf Water Potential (Common Time)",
-    subtitle = "Midday = black dots | Predawn = black + | LPJ = colored",
-    x = expression(paste(Psi[L], " (MPa)")),
+    title = "standardized canopy conductance vs leaf water potential (common time)",
+    subtitle = "midday = open triangle | predawn = black + | LPJ = colored",
+    x = expression(Psi["   leaf"]~"(MPa)"),
     y = expression(G[c]/G[cmax]),
-    color = "LPJ Species"
+    color = ""
   ) +
   base_theme
 
@@ -258,21 +282,27 @@ print(p_gc_rel_common)
 # ==============================================================================
 
 p_gc_rel_full <- ggplot() +
+  # 1. Midday: Open triangle (shape 2)
   geom_point(data = data_obs_full_std, aes(x = psiL_md, y = gc_rel_obs), 
-             color = "black", alpha = 0.35, size = pt_size) +
+             shape = 2, color = "black", alpha = 0.8, size = pt_size) +
+  
+  # 2. Predawn: Black + (shape 3)
   geom_point(data = data_obs_full_std, aes(x = psiL_pd, y = gc_rel_obs), 
-             color = "black", shape = 3, alpha = 0.5, size = pt_size) +
+             color = "black", shape = 3, alpha = 0.8, size = pt_size) +
+  
+  # 3. LPJ: Colored solid points
   geom_point(data = data_full_model_std, aes(x = psiL, y = gc_rel_mod, color = species), 
              alpha = 0.45, size = pt_size) +
+  
   facet_wrap(~species, ncol = 2) +
   scale_color_manual(values = cb_palette) +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
   labs(
-    title = "Relative Conductance vs Leaf Water Potential (Full Time Series)",
-    subtitle = "Midday = black dots | Predawn = black + | LPJ = colored",
-    x = expression(paste(Psi[L], " (MPa)")),
+    title = "standardized canopy conductance vs leaf water potential (full time series)",
+    subtitle = "midday = open triangle | predawn = black + | LPJ = colored",
+    x = expression(Psi["   leaf"]~"(MPa)"),
     y = expression(G[c]/G[cmax]),
-    color = "LPJ Species"
+    color = ""
   ) +
   base_theme
 
@@ -293,11 +323,11 @@ p_psi_md_common <- ggplot(combined_data, aes(x = psiL_md, y = psiL, color = spec
   scale_y_continuous(limits = psi_limits) +
   coord_fixed() +
   labs(
-    title = "LPJ vs Observed Midday Leaf Water Potential (Common Time)",
-    subtitle = paste0("Dashed line = 1:1 relationship\n", climate_txt, " | June–Sept"),
-    x = expression(paste("Observed ", Psi[L], " Midday (MPa)")),
-    y = expression(paste("LPJ ", Psi[L], " (MPa)")),
-    color = "Species"
+    title = "simulated vs observed midday leaf water potential (common time)",
+    subtitle = paste0(climate_txt, " | June–September"),
+    x = expression("observed midday"~Psi["   leaf"]~" (MPa)"),
+    y = expression("LPJ-GUESS-HYD simulated "~Psi["   leaf"]~" (MPa)"),
+    color = ""
   ) +
   base_theme
 
@@ -316,11 +346,11 @@ p_psi_pd_common <- ggplot(combined_data, aes(x = psiL_pd, y = psiL, color = spec
   scale_y_continuous(limits = psi_limits) +
   coord_fixed() +
   labs(
-    title = "LPJ vs Observed Predawn Leaf Water Potential (Common Time)",
-    subtitle = paste0("Dashed line = 1:1 relationship\n", climate_txt, " | June–Sept"),
-    x = expression(paste("Observed ", Psi[L], " Predawn (MPa)")),
-    y = expression(paste("LPJ ", Psi[L], " (MPa)")),
-    color = "Species"
+    title = "simulated vs observed predawn leaf water potential (common time)",
+    subtitle = paste0(climate_txt, " | June–September"),
+    x = expression("observed predawn"~Psi["   leaf"]~" (MPa)"),
+    y = expression("LPJ-GUESS-HYD simulated "~Psi["   leaf"]~" (MPa)"),
+    color = ""
   ) +
   base_theme
 
@@ -338,15 +368,15 @@ p_gc_all <- ggplot(combined_data_withNA, aes(x = gc_obs, y = gc_mmod, color = sp
   geom_point(alpha = 0.6, size = pt_size) +
   facet_wrap(~species, ncol = 2) +
   scale_color_manual(values = cb_palette) +
-  scale_x_continuous(limits = c(0, 2000)) +
+  scale_x_continuous(limits = c(0, 2000)) + 
   scale_y_continuous(limits = c(0, 2000)) +
   coord_fixed() +
   labs(
-    title = "LPJ vs Observed Conductance",
-    subtitle = "X = G_asw | Y = LPJ gc_mmod (no climate filtering)\nDashed line = 1:1",
-    x = expression(G[c]~Observed~(mol~m^{-2}~s^{-1})),
-    y = expression(G[c]~LPJ~(mol~m^{-2}~s^{-1})),
-    color = "Species"
+    title = "simulated vs observed canopy conductance",
+    subtitle = paste0("no climate filtering"),
+    x = expression("observed"~G[c]~(mol~m^{-2}~s^{-1})),
+    y = expression("LPJ-GUESS-HYD simulated"~G[c]~(mol~m^{-2}~s^{-1})),
+    color = ""
   ) +
   base_theme
 
@@ -371,16 +401,15 @@ p_gc_climate <- ggplot(gc_compare_climate, aes(x = gc_obs, y = gc_mmod, color = 
   scale_color_manual(values = cb_palette) +
   coord_fixed() +
   labs(
-    title = "LPJ vs Observed Conductance (Climate-Filtered Conditions)",
-    subtitle = paste0("Filtered: ", climate_txt, "\nJune–September only\nDashed line = 1:1"),
-    x = expression(G[c]~Observed~(mol~m^{-2}~s^{-1})),
-    y = expression(G[c]~LPJ~(mol~m^{-2}~s^{-1})),
-    color = "Species"
+    title = "simulated vs observed canopy conductance (climate-filtered)",
+    subtitle = paste0(climate_txt, " | June–September"),
+    x = expression("observed"~G[c]~(mol~m^{-2}~s^{-1})),
+    y = expression("LPJ-GUESS-HYD simulated"~G[c]~(mol~m^{-2}~s^{-1})),
+    color = ""
   ) +
   base_theme
 
 print(p_gc_climate)
-
 # ==============================================================================
 # PRINT ALL FIGURES
 # ==============================================================================
@@ -407,3 +436,135 @@ ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_pd_common.png", p_psi_pd_common, wi
 ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_Gc_all_summer.png", p_gc_all, width = 13, height = 9, dpi = 300)
 ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_Gc_climate_filtered.png", p_gc_climate, width = 13, height = 9, dpi = 300)
 
+# ==============================================================================
+# SINGLE PANEL VERSIONS (All species colored, unique shapes)
+# ==============================================================================
+
+# 1. Absolute Gc vs Psi_L (Common Time)
+p_gc_psi_common_single <- ggplot(combined_data) +
+  # 1. Midday: Open Triangle (shape 2)
+  geom_point(aes(x = psiL_md, y = gc_obs, color = species, shape = "obs midday"), alpha = 0.8, size = pt_size) +
+  
+  # 2. Predawn: + (shape 3)
+  geom_point(aes(x = psiL_pd, y = gc_obs, color = species, shape = "obs predawn"), alpha = 0.8, size = pt_size) +
+  
+  # 3. LPJ: Solid Point (shape 16)
+  geom_point(aes(x = psiL, y = gc_mmod, color = species, shape = "lpj simulated"), alpha = 1, size = pt_size + 0.5) +
+  
+  scale_color_manual(values = cb_palette) +
+  # Shape 2 = Open Triangle, Shape 3 = +, Shape 16 = Solid Point
+  scale_shape_manual(name = "", 
+                     values = c("obs midday" = 2, "obs predawn" = 3, "lpj simulated" = 16)) +
+  labs(
+    title = "canopy conductance vs leaf water potential (common time)",
+    subtitle = paste0(climate_txt, "\nmidday = open triangle | predawn = + | LPJ-GUESS-HYD = ●"),
+    x = expression(Psi["   leaf"]~"(MPa)"),
+    y = expression(G[c]~(mmol~m^{-2}~s^{-1})),
+    color = ""
+  ) +
+  base_theme
+
+print(p_gc_psi_common_single)
+
+# 2. Absolute Gc vs Psi_L (Full Series)
+p_gc_psi_full_single <- ggplot() +
+  # 1. Midday: Open Triangle (shape 2)
+  geom_point(data = obs_filtered_climate, aes(x = psiL_md, y = gc_obs, color = species, shape = "obs midday"), 
+             alpha = 0.8, size = pt_size) +
+  
+  # 2. Predawn: + (shape 3)
+  geom_point(data = obs_filtered_climate, aes(x = psiL_pd, y = gc_obs, color = species, shape = "obs predawn"), 
+             alpha = 0.8, size = pt_size) +
+  
+  # 3. LPJ: Solid Point (shape 16)
+  geom_point(data = data_full_model, aes(x = psiL, y = gc_mmod, color = species, shape = "lpj simulated"), 
+             alpha = 0.45, size = pt_size) +
+  
+  scale_color_manual(values = cb_palette) +
+  # Shape 2 = Open Triangle, Shape 3 = +, Shape 16 = Solid Point
+  scale_shape_manual(name = "", 
+                     values = c("obs midday" = 2, "obs predawn" = 3, "lpj simulated" = 16)) +
+  labs(
+    title = "canopy conductance vs leaf water potential (full series)",
+    subtitle = paste0(climate_txt, "\nmidday = open triangle | predawn = + | LPJ-GUESS-HYD = ●"),
+    x = expression(Psi["   leaf"]~"(MPa)"),
+    y = expression(G[c]~(mmol~m^{-2}~s^{-1})),
+    color = ""
+  ) +
+  base_theme
+
+print(p_gc_psi_full_single)
+
+# 3. Standardized Gc vs Psi_L (Common Time)
+p_gc_rel_common_single <- ggplot(combined_std) +
+  # 1. Midday: Open Triangle (shape 2)
+  geom_point(aes(x = psiL_md, y = gc_rel_obs, color = species, shape = "obs midday"), 
+             alpha = 0.8, size = pt_size) +
+  
+  # 2. Predawn: + (shape 3)
+  geom_point(aes(x = psiL_pd, y = gc_rel_obs, color = species, shape = "obs predawn"), 
+             alpha = 0.8, size = pt_size) +
+  
+  # 3. LPJ: Solid Point (shape 16)
+  geom_point(aes(x = psiL, y = gc_rel_mod, color = species, shape = "lpj simulated"), 
+             alpha = 1, size = pt_size + 0.5) +
+  
+  scale_color_manual(values = cb_palette) +
+  # Shape 2 = Open Triangle, Shape 3 = +, Shape 16 = Solid Point
+  scale_shape_manual(name = "", 
+                     values = c("obs midday" = 2, "obs predawn" = 3, "lpj simulated" = 16)) +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+  labs(
+    title = "standardized canopy conductance vs leaf water potential (common time)",
+    subtitle = paste0(climate_txt, "\nmidday = open triangle | predawn = + | LPJ-GUESS-HYD = ●"),
+    x = expression(Psi["   leaf"]~"(MPa)"),
+    y = expression(G[c]/G[cmax]),
+    color = ""
+  ) +
+  base_theme
+
+print(p_gc_rel_common_single)
+
+# 4. Standardized Gc vs Psi_L (Full Time Series)
+p_gc_rel_full_single <- ggplot() +
+  # 1. Midday: Open Triangle (shape 2)
+  geom_point(data = data_obs_full_std, aes(x = psiL_md, y = gc_rel_obs, color = species, shape = "obs midday"), 
+             alpha = 0.8, size = pt_size) +
+  
+  # 2. Predawn: + (shape 3)
+  geom_point(data = data_obs_full_std, aes(x = psiL_pd, y = gc_rel_obs, color = species, shape = "obs predawn"), 
+             alpha = 0.8, size = pt_size) +
+  
+  # 3. LPJ: Solid Point (shape 16)
+  geom_point(data = data_full_model_std, aes(x = psiL, y = gc_rel_mod, color = species, shape = "lpj simulated"), 
+             alpha = 0.45, size = pt_size) +
+  
+  scale_color_manual(values = cb_palette) +
+  # Shape 2 = Open Triangle, Shape 3 = +, Shape 16 = Solid Point
+  scale_shape_manual(name = "", 
+                     values = c("obs midday" = 2, "obs predawn" = 3, "lpj simulated" = 16)) +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+  labs(
+    title = "standardized canopy conductance vs leaf water potential (full time series)",
+    subtitle = paste0(climate_txt, "\nmidday = open triangle | predawn = + | LPJ-GUESS-HYD = ●"),
+    x = expression(Psi["   leaf"]~"(MPa)"),
+    y = expression(G[c]/G[cmax]),
+    color = ""
+  ) +
+  base_theme
+
+print(p_gc_rel_full_single)
+
+# ==============================================================================
+# SAVE SINGLE PANEL FIGURES
+# ==============================================================================
+
+print(p_gc_psi_common_single)
+print(p_gc_rel_common_single)
+print(p_gc_psi_full_single)
+print(p_gc_rel_full_single)
+
+ggsave("Figures/Hoelstein/single_panel_Gc_vs_PsiL_common.png", p_gc_psi_common_single, width = 11, height = 8, dpi = 300)
+ggsave("Figures/Hoelstein/single_panel_Gc_vs_PsiL_full.png", p_gc_psi_full_single, width = 11, height = 8, dpi = 300)
+ggsave("Figures/Hoelstein/single_panel_Gc_rel_vs_PsiL_common.png", p_gc_rel_common_single, width = 11, height = 8, dpi = 300)
+ggsave("Figures/Hoelstein/single_panel_Gc_rel_vs_PsiL_full.png", p_gc_rel_full_single, width = 11, height = 8, dpi = 300)

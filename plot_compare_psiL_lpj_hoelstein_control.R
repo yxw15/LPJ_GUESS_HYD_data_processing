@@ -21,6 +21,7 @@ base_theme <- theme_minimal() +
     legend.text       = element_text(color = "black", size = 14),
     legend.position   = "bottom",
     plot.title        = element_text(hjust = 0.5, size = 18, color = "black", face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 14),
     axis.title        = element_text(size = 16),
     axis.text.x       = element_text(angle = 0, hjust = 0.5, size = 12),
     axis.text.y       = element_text(angle = 0, hjust = 0.5, size = 12),
@@ -69,19 +70,19 @@ combined_data <- lpj_base %>%
 p_psi_common <- ggplot(combined_data, aes(x = date)) +
   # --- LPJ Components (Colored by Species) ---
   geom_line(aes(y = psiL, color = species), linewidth = 1) + 
-  geom_line(aes(y = psiX, color = species), linewidth = 0.5, linetype = "dotdash", alpha = 0.7) + 
-  geom_line(aes(y = psiS, color = species), linewidth = 0.4, alpha = 0.5) + 
+  geom_line(aes(y = psiX, color = species), linewidth = 0.7, linetype = "dotdash", alpha = 1) + 
+  geom_line(aes(y = psiS, color = species), linewidth = 0.7, alpha = 1) + 
   
   # --- Observed Leaf Data (Grey Lines/Points) ---
-  geom_line(aes(y = psiLmd_obs, color = "Observed"), linewidth = 0.6, linetype = "solid") +
-  geom_point(aes(y = psiLmd_obs, color = "Observed"), size = 1.5, alpha = 0.8) +
+  geom_line(aes(y = psiLmd_obs, color = "observed"), linewidth = 0.6, linetype = "solid") +
+  geom_point(aes(y = psiLmd_obs, color = "observed"), size = 1.5, alpha = 0.8) +
   
-  geom_line(aes(y = psiLpd_obs, color = "Observed"), linewidth = 0.6, linetype = "dashed") +
-  geom_point(aes(y = psiLpd_obs, color = "Observed"), size = 1.5, shape = 1, alpha = 0.8) +
+  geom_line(aes(y = psiLpd_obs, color = "observed"), linewidth = 0.8, linetype = "dashed") +
+  geom_point(aes(y = psiLpd_obs, color = "observed"), size = 1.5, shape = 1, alpha = 1) +
   
-  # --- Observed Soil Data (Black line to distinguish from Leaf Obs) ---
-  geom_line(aes(y = psiS_obs), color = "black", linewidth = 0.8, linetype = "dotted") +
-  geom_point(aes(y = psiS_obs), color = "black", size = 1, shape = 4) + # 'x' shape for soil
+  # --- Observed Soil Data ---
+  geom_line(aes(y = psiS_obs), color = "black", linewidth = 1, linetype = "dotted") +
+  geom_point(aes(y = psiS_obs), color = "black", size = 1, shape = 4) + 
   
   # Faceting
   facet_wrap(~species, ncol = 2, scales = "free_y") +
@@ -89,13 +90,15 @@ p_psi_common <- ggplot(combined_data, aes(x = date)) +
   # Styling
   scale_color_manual(values = custom_colors) +
   labs(
-    title = "Water Potential Comparison",
-    subtitle = "Colored Lines: LPJ (L solid, X dot-dash, S thin) | Grey: Obs Leaf (MD solid, PD dashed) | Black Dotted: Obs Soil",
-    x = "Date",
-    y = expression(paste(Psi, " (MPa)")),
-    color = "Source"
+    title = "water potential time series comparison (common time)",
+    subtitle = paste0(climate_txt, "\ncolor: lpj (L solid, X dotdash, S thin) | grey: obs leaf (MD solid, PD dashed) | black: obs soil"),
+    x = "date",
+    y = expression(Psi~"(MPa)"),
+    color = ""
   ) +
   base_theme
+
+print(p_psi_common)
 
 # Save and Print
 if(!dir.exists("Figures/Hoelstein")) dir.create("Figures/Hoelstein", recursive = TRUE)

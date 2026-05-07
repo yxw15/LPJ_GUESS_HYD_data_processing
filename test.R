@@ -407,3 +407,104 @@ ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_pd_common.png", p_psi_pd_common, wi
 ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_Gc_all_summer.png", p_gc_all, width = 13, height = 9, dpi = 300)
 ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_Gc_climate_filtered.png", p_gc_climate, width = 13, height = 9, dpi = 300)
 
+# ==============================================================================
+# SINGLE PANEL VERSIONS (All species colored, unique shapes)
+# ==============================================================================
+
+# 1. Absolute Gc vs Psi_L (Common Time)
+p_gc_psi_common_single <- ggplot(combined_data) +
+  geom_point(aes(x = psiL_md, y = gc_obs, color = species, shape = "Obs Midday"), alpha = 0.8, size = pt_size) +
+  geom_point(aes(x = psiL_pd, y = gc_obs, color = species, shape = "Obs Predawn"), alpha = 0.8, size = pt_size) +
+  geom_point(aes(x = psiL, y = gc_mmod, color = species, shape = "LPJ Model"), alpha = 1, size = pt_size + 0.5) +
+  scale_color_manual(values = cb_palette) +
+  # Shape 4 = x, Shape 3 = +, Shape 16 = Solid Point
+  scale_shape_manual(name = "Data Source", 
+                     values = c("Obs Midday" = 4, "Obs Predawn" = 3, "LPJ Model" = 16)) +
+  labs(
+    title = "Conductance vs Leaf Water Potential (Common Time)",
+    subtitle = "Color = Species | Midday = x | Predawn = + | LPJ = ●",
+    x = expression(paste(Psi[L], " (MPa)")),
+    y = expression(G[c]~(mol~m^{-2}~s^{-1})),
+    color = "Species"
+  ) +
+  base_theme
+
+print(p_gc_psi_common_single)
+
+# 2. Absolute Gc vs Psi_L (Full Series)
+p_gc_psi_full_single <- ggplot() +
+  geom_point(data = obs_filtered_climate, aes(x = psiL_md, y = gc_obs, color = species, shape = "Obs Midday"), 
+             alpha = 0.8, size = pt_size) +
+  geom_point(data = obs_filtered_climate, aes(x = psiL_pd, y = gc_obs, color = species, shape = "Obs Predawn"), 
+             alpha = 0.8, size = pt_size) +
+  geom_point(data = data_full_model, aes(x = psiL, y = gc_mmod, color = species, shape = "LPJ Model"), 
+             alpha = 0.6, size = pt_size) +
+  scale_color_manual(values = cb_palette) +
+  scale_shape_manual(name = "Data Source", 
+                     values = c("Obs Midday" = 4, "Obs Predawn" = 3, "LPJ Model" = 16)) +
+  labs(
+    title = "Conductance vs Leaf Water Potential (Full Series)",
+    subtitle = "Color = Species | Midday = x | Predawn = + | LPJ = ●",
+    x = expression(paste(Psi[L], " (MPa)")),
+    y = expression(G[c]~(mol~m^{-2}~s^{-1})),
+    color = "Species"
+  ) +
+  base_theme
+
+print(p_gc_psi_full_single)
+
+# 3. Relative Gc (Common Time)
+p_gc_rel_common_single <- ggplot(combined_std) +
+  geom_point(aes(x = psiL_md, y = gc_rel_obs, color = species, shape = "Obs Midday"), alpha = 0.8, size = pt_size) +
+  geom_point(aes(x = psiL_pd, y = gc_rel_obs, color = species, shape = "Obs Predawn"), alpha = 0.8, size = pt_size) +
+  geom_point(aes(x = psiL, y = gc_rel_mod, color = species, shape = "LPJ Model"), alpha = 1, size = pt_size + 0.5) +
+  scale_color_manual(values = cb_palette) +
+  scale_shape_manual(name = "Data Source", 
+                     values = c("Obs Midday" = 4, "Obs Predawn" = 3, "LPJ Model" = 16)) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(
+    title = "Relative Conductance vs Leaf Water Potential (Common Time)",
+    subtitle = "Color = Species | Midday = x | Predawn = + | LPJ = ●",
+    x = expression(paste(Psi[L], " (MPa)")),
+    y = expression(G[c]/G[cmax]),
+    color = "Species"
+  ) +
+  base_theme
+print(p_gc_rel_common_single)
+
+# 4. Relative Gc (Full Series)
+p_gc_rel_full_single <- ggplot() +
+  geom_point(data = data_obs_full_std, aes(x = psiL_md, y = gc_rel_obs, color = species, shape = "Obs Midday"), 
+             alpha = 0.8, size = pt_size) +
+  geom_point(data = data_obs_full_std, aes(x = psiL_pd, y = gc_rel_obs, color = species, shape = "Obs Predawn"), 
+             alpha = 0.8, size = pt_size) +
+  geom_point(data = data_full_model_std, aes(x = psiL, y = gc_rel_mod, color = species, shape = "LPJ Model"), 
+             alpha = 0.6, size = pt_size) +
+  scale_color_manual(values = cb_palette) +
+  scale_shape_manual(name = "Data Source", 
+                     values = c("Obs Midpoint" = 4, "Obs Predawn" = 3, "LPJ Model" = 16)) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(
+    title = "Relative Conductance vs Leaf Water Potential (Full Series)",
+    subtitle = "Color = Species | Midday = x | Predawn = + | LPJ = ●",
+    x = expression(paste(Psi[L], " (MPa)")),
+    y = expression(G[c]/G[cmax]),
+    color = "Species"
+  ) +
+  base_theme
+
+print(p_gc_rel_full_single)
+
+# ==============================================================================
+# SAVE SINGLE PANEL FIGURES
+# ==============================================================================
+
+print(p_gc_psi_common_single)
+print(p_gc_rel_common_single)
+print(p_gc_psi_full_single)
+print(p_gc_rel_full_single)
+
+ggsave("Figures/Hoelstein/single_panel_Gc_vs_PsiL_common.png", p_gc_psi_common_single, width = 11, height = 8, dpi = 300)
+ggsave("Figures/Hoelstein/single_panel_Gc_vs_PsiL_full.png", p_gc_psi_full_single, width = 11, height = 8, dpi = 300)
+ggsave("Figures/Hoelstein/single_panel_Gc_rel_vs_PsiL_common.png", p_gc_rel_common_single, width = 11, height = 8, dpi = 300)
+ggsave("Figures/Hoelstein/single_panel_Gc_rel_vs_PsiL_full.png", p_gc_rel_full_single, width = 11, height = 8, dpi = 300)
