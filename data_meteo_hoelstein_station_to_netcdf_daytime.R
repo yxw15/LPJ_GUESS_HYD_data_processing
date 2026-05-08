@@ -1,5 +1,3 @@
-setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD")
-
 library(dplyr)
 library(tidyr)
 library(readr)
@@ -10,10 +8,10 @@ library(lubridate)
 # 1) Load data
 # ============================================================
 daily_filtered <- read.csv(
-  "MeteoSwiss/MeteoSwiss_station_to_netcdf/all_filtered_19910101_to_20251231.csv"
+  "Data/MeteoSwiss_station/all_filtered_19910101_to_20251231.csv"
 )
 
-out_dir <- "MeteoSwiss/MeteoSwiss_station_to_netcdf_hoelstein"
+out_dir <- "Data/MeteoSwiss_station_to_netcdf_hoelstein"
 
 daily_filtered <- daily_filtered %>%
   mutate(

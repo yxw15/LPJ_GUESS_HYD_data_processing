@@ -2,8 +2,6 @@
 # 0) Setup
 # ============================================================
 
-setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD/MeteoSwiss")
-
 library(dplyr)
 library(lubridate)
 library(tidyr)
@@ -17,27 +15,27 @@ target_station <- "RUE"
 # ============================================================
 
 meteo_daily_wholeday <- read.csv(
-  "MeteoSwiss_station/all_selected_19910101_to_20251231.csv"
+  "Data/MeteoSwiss_station/all_selected_19910101_to_20251231.csv"
 )
 
 hourly_wind_speed_mean <- read.csv(
-  "MeteoSwiss_variable/wind_speed_scalar__hourly_mean_in_m_s_hourly.csv"
+  "Data/MeteoSwiss_variable/wind_speed_scalar__hourly_mean_in_m_s_hourly.csv"
 )
 
 hourly_global_radiation_mean <- read.csv(
-  "MeteoSwiss_variable/global_radiation__hourly_mean_hourly.csv"
+  "Data/MeteoSwiss_variable/global_radiation__hourly_mean_hourly.csv"
 )
 
 hourly_relative_humidity_mean <- read.csv(
-  "MeteoSwiss_variable/relative_air_humidity_2_m_above_ground__hourly_mean_hourly.csv"
+  "Data/MeteoSwiss_variable/relative_air_humidity_2_m_above_ground__hourly_mean_hourly.csv"
 )
 
 hourly_temperature_mean <- read.csv(
-  "MeteoSwiss_variable/air_temperature_2_m_above_ground__hourly_mean_hourly.csv"
+  "Data/MeteoSwiss_variable/air_temperature_2_m_above_ground__hourly_mean_hourly.csv"
 )
 
 daily_precipitation_total <- read.csv(
-  "MeteoSwiss_variable/precipitation__daily_total_0_utc_-_0_utc_daily.csv"
+  "Data/MeteoSwiss_variable/precipitation__daily_total_0_utc_-_0_utc_daily.csv"
 )
 
 # ============================================================
@@ -121,7 +119,7 @@ meteo_daily_daytime <- meteo_daily_daytime %>%
 # 7) Hoelstein DAYTIME dataset
 # ============================================================
 
-hoelstein_folder <- "../SCCII/Climate_Hoelstein"
+hoelstein_folder <- "Data/SCCII/Climate_Hoelstein"
 
 files <- list.files(
   hoelstein_folder,
@@ -203,6 +201,7 @@ ggplot(df_long, aes(x = date, y = value, color = source)) +
 
 write.csv(
   df_all,
-  "MeteoSwiss_station/RUE_meteo_hoelstein.csv",
+  "Data/MeteoSwiss_station/RUE_meteo_hoelstein.csv",
   row.names = FALSE
 )
+

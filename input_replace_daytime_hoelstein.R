@@ -2,8 +2,6 @@
 # 0) Setup
 # ============================================================
 
-setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD/MeteoSwiss")
-
 library(dplyr)
 library(lubridate)
 library(tidyr)
@@ -14,11 +12,11 @@ library(ggplot2)
 # ============================================================
 
 meteo_daily_wholeday <- read.csv(
-  "MeteoSwiss_station/all_selected_19910101_to_20251231.csv"
+  "Data/MeteoSwiss_station/all_selected_19910101_to_20251231.csv"
 )
 
 data_daytime <- read.csv(
-  "MeteoSwiss_station/RUE_meteo_hoelstein.csv"
+  "Data/MeteoSwiss_station/RUE_meteo_hoelstein.csv"
 )
 
 # ============================================================
@@ -136,8 +134,49 @@ ggplot(rue_plot_data, aes(x = date, y = value)) +
 # 9) Save final dataset
 # ============================================================
 
-out_file <- "MeteoSwiss_station/all_stations_RUE_replaced_daytime.csv"
+out_file <- "Data/MeteoSwiss_station/all_stations_RUE_replaced_daytime.csv"
 
 write.csv(meteo_final, out_file, row.names = FALSE)
 
 cat("Saved final dataset to:", out_file, "\n")
+
+# ============================================================
+# 10) Drought experiments
+# ============================================================
+# Define your specific start/end dates for each year
+drought_periods <- tribble(
+  ~year, ~start_date,  ~end_date,
+  2023,  "2023-04-01", "2023-10-01",
+  2024,  "2024-04-01", "2024-10-15",
+  2025,  "2025-04-01", "2025-10-15"  # Adjusted 2025 based on your logic
+) %>%
+  mutate(
+    start_date = as.Date(start_date),
+    end_date = as.Date(end_date)
+  )
+
+# Ensure your date column is in Date format
+meteo_final <- meteo_final %>%
+  mutate(date = as.Date(date),
+         year_val = year(date))
+
+# Join with our period definitions and apply logic
+meteo_drought <- meteo_final %>%
+  left_join(drought_periods, by = c("year_val" = "year")) %>%
+  mutate(
+    precipitation_drought = if_else(
+      !is.na(start_date) & date >= start_date & date <= end_date,
+      precipitation * 0.5, # Reduce by 50%
+      precipitation        # Keep original otherwise
+    )
+  ) %>%
+  # Clean up the helper columns used for the calculation
+  select(-start_date, -end_date, -year_val)
+
+head(meteo_drought %>% filter(date == "2023-04-01"))
+
+drought_out_file <- "Data/MeteoSwiss_station/all_stations_RUE_replaced_daytime_drought.csv"
+
+write.csv(meteo_drought, drought_out_file, row.names = FALSE)
+
+cat("Success! Drought-adjusted dataset saved to:", drought_out_file, "\n")

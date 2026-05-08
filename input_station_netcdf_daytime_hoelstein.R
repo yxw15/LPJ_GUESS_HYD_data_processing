@@ -1,5 +1,7 @@
-setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD/MeteoSwiss")
+setwd("~/Documents/Manuscript3")
 
-source("../R_scripts/check_MeteoSwiss_Hoelstein_data.R")
-source("../R_scripts/input_replace_daytime_hoelstein.R")
-source("../MeteoSwiss/MeteoSwiss_data_processing/station_to_netcdf.R")
+source("MeteoSwiss_data_processing/download_nearest_station_ten.R")
+source("MeteoSwiss_data_processing/download_nearest_station_one_minute_hour_daily.R")
+source("LPJ_GUESS_HYD_data_processing/check_MeteoSwiss_Hoelstein_data.R")
+source("LPJ_GUESS_HYD_data_processing/input_replace_daytime_hoelstein.R")
+source("LPJ_GUESS_HYD_data_processing/MeteoSwiss_data_processing/station_to_netcdf.R")
