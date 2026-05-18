@@ -53,9 +53,9 @@ base_theme <- theme_minimal() +
 # DATA INGESTION
 # ==============================================================================
 
-lpj_base <- read.csv("lpj_guess/lpj_Gc_psiL_psiX_psiS.csv") %>% mutate(date = as.Date(date))
-psiL_control <- read.csv("SCCII/psiL_hoelstein_control.csv") %>% mutate(date = as.Date(date))
-sap_control <- read.csv("SCCII/sap_hoelstein_control.csv") %>% mutate(date = as.Date(date))
+lpj_base <- read.csv("lpj_guess/lpj_Gc_psiL_psiX_psiS_drought.csv") %>% mutate(date = as.Date(date))
+psiL_drought <- read.csv("SCCII/psiL_hoelstein_drought.csv") %>% mutate(date = as.Date(date))
+sap_drought <- read.csv("SCCII/sap_hoelstein_drought.csv") %>% mutate(date = as.Date(date))
 
 # ==============================================================================
 # CLIMATE FILTER
@@ -92,19 +92,19 @@ mod_proc <- lpj_base %>%
 # ==============================================================================
 
 # Midday leaf water potential
-obs_md <- psiL_control %>%
+obs_md <- psiL_drought %>%
   group_by(date, species_name) %>%
   summarise(psiL_md = mean(md_wp_av, na.rm = TRUE), .groups = "drop") %>%
   rename(species = species_name)
 
 # Predawn leaf water potential
-obs_pd <- psiL_control %>%
+obs_pd <- psiL_drought %>%
   group_by(date, species_name) %>%
   summarise(psiL_pd = mean(pd_wp_av, na.rm = TRUE), .groups = "drop") %>%
   rename(species = species_name)
 
 # Sap flux conductance
-obs_gc <- sap_control %>%
+obs_gc <- sap_drought %>%
   group_by(date, species) %>%
   summarise(gc_obs = mean(G_asw, na.rm = TRUE), .groups = "drop")
 
@@ -204,7 +204,7 @@ p_gc_psi_common <- ggplot(combined_data) +
   facet_wrap(~species, ncol = 2) +
   scale_color_manual(values = cb_palette) +
   labs(
-    title = "canopy conductance vs leaf water potential (common time)",
+    title = "canopy conductance vs leaf water potential (drought experiement since 2023)",
     # Updated subtitle to reflect the new triangle shape
     subtitle = paste0(climate_txt, " | June–September\nmidday = open triangle | predawn = black + | LPJ = colored"),
     x = expression(Psi["   leaf"]~"(MPa)"),
@@ -235,7 +235,7 @@ p_gc_psi_full <- ggplot() +
   facet_wrap(~species, ncol = 2) +
   scale_color_manual(values = cb_palette) +
   labs(
-    title = "canopy conductance vs leaf water potential (full time series)",
+    title = "canopy conductance vs leaf water potential (drought experiement since 2023)",
     # Updated subtitle to match visual style
     subtitle = "midday = open triangle | predawn = black + | LPJ = colored",
     x = expression(Psi["   leaf"]~"(MPa)"),
@@ -267,7 +267,7 @@ p_gc_rel_common <- ggplot(combined_std) +
   scale_color_manual(values = cb_palette) +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
   labs(
-    title = "standardized canopy conductance vs leaf water potential (common time)",
+    title = "standardized canopy conductance vs leaf water potential (drought experiement since 2023)",
     subtitle = "midday = open triangle | predawn = black + | LPJ = colored",
     x = expression(Psi["   leaf"]~"(MPa)"),
     y = expression(G[c]/G[cmax]),
@@ -298,7 +298,7 @@ p_gc_rel_full <- ggplot() +
   scale_color_manual(values = cb_palette) +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
   labs(
-    title = "standardized canopy conductance vs leaf water potential (full time series)",
+    title = "standardized canopy conductance vs leaf water potential (drought experiement since 2023)",
     subtitle = "midday = open triangle | predawn = black + | LPJ = colored",
     x = expression(Psi["   leaf"]~"(MPa)"),
     y = expression(G[c]/G[cmax]),
@@ -346,7 +346,7 @@ p_psi_pd_common <- ggplot(combined_data, aes(x = psiL_pd, y = psiL, color = spec
   scale_y_continuous(limits = psi_limits) +
   coord_fixed() +
   labs(
-    title = "simulated vs observed predawn leaf water potential (common time)",
+    title = "simulated vs observed predawn leaf water potential (drought experiement since 2023)",
     subtitle = paste0(climate_txt, " | June–September"),
     x = expression("observed predawn"~Psi["   leaf"]~" (MPa)"),
     y = expression("LPJ-GUESS-HYD simulated "~Psi["   leaf"]~" (MPa)"),
@@ -403,7 +403,7 @@ p_gc_climate <- ggplot(gc_compare_climate, aes(x = gc_obs, y = gc_mmod, color = 
   scale_color_manual(values = cb_palette) +
   coord_fixed() +
   labs(
-    title = "simulated vs observed canopy conductance (climate-filtered)",
+    title = "simulated vs observed canopy conductance (drought experiement since 2023)",
     subtitle = paste0(climate_txt, " | June–September"),
     x = expression("observed"~G[c]~(mol~m^{-2}~s^{-1})),
     y = expression("LPJ-GUESS-HYD simulated"~G[c]~(mol~m^{-2}~s^{-1})),
@@ -429,14 +429,14 @@ print(p_gc_climate)
 # SAVE FIGURES
 # ==============================================================================
 
-ggsave("Figures/Hoelstein/compare_Gc_vs_PsiL_common_time.png", p_gc_psi_common, width = 13, height = 9, dpi = 300)
-ggsave("Figures/Hoelstein/compare_Gc_vs_PsiL_full.png", p_gc_psi_full, width = 13, height = 9, dpi = 300)
-ggsave("Figures/Hoelstein/compare_Gc_rel_vs_PsiL_common_time.png", p_gc_rel_common, width = 13, height = 9, dpi = 300)
-ggsave("Figures/Hoelstein/compare_Gc_rel_vs_PsiL_full.png", p_gc_rel_full, width = 13, height = 9, dpi = 300)
-ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_md_common.png", p_psi_md_common, width = 13, height = 9, dpi = 300)
-ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_pd_common.png", p_psi_pd_common, width = 13, height = 9, dpi = 300)
-ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_Gc_all_summer.png", p_gc_all, width = 15, height = 8, dpi = 300)
-ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_Gc_climate_filtered.png", p_gc_climate, width = 15, height = 8, dpi = 300)
+ggsave("Figures/Hoelstein/compare_Gc_vs_PsiL_common_time_drought.png", p_gc_psi_common, width = 13, height = 9, dpi = 300)
+ggsave("Figures/Hoelstein/compare_Gc_vs_PsiL_full_drought.png", p_gc_psi_full, width = 13, height = 9, dpi = 300)
+ggsave("Figures/Hoelstein/compare_Gc_rel_vs_PsiL_common_time_drought.png", p_gc_rel_common, width = 13, height = 9, dpi = 300)
+ggsave("Figures/Hoelstein/compare_Gc_rel_vs_PsiL_full_drought.png", p_gc_rel_full, width = 13, height = 9, dpi = 300)
+ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_md_common_drought.png", p_psi_md_common, width = 13, height = 9, dpi = 300)
+ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_pd_common_drought.png", p_psi_pd_common, width = 13, height = 9, dpi = 300)
+ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_Gc_all_summer_drought.png", p_gc_all, width = 15, height = 8, dpi = 300)
+ggsave("Figures/Hoelstein/compare_LPJ_vs_obs_Gc_climate_filtered_drought.png", p_gc_climate, width = 15, height = 8, dpi = 300)
 
 # ==============================================================================
 # SINGLE PANEL VERSIONS (All species colored, unique shapes)
@@ -458,7 +458,7 @@ p_gc_psi_common_single <- ggplot(combined_data) +
   scale_shape_manual(name = "", 
                      values = c("obs midday" = 2, "obs predawn" = 3, "lpj simulated" = 16)) +
   labs(
-    title = "canopy conductance vs leaf water potential (common time)",
+    title = "canopy conductance vs leaf water potential (drought experiment since 2023)",
     subtitle = paste0(climate_txt, "\nmidday = open triangle | predawn = + | LPJ-GUESS-HYD = ●"),
     x = expression(Psi["   leaf"]~"(MPa)"),
     y = expression(G[c]~(mmol~m^{-2}~s^{-1})),
@@ -487,7 +487,7 @@ p_gc_psi_full_single <- ggplot() +
   scale_shape_manual(name = "", 
                      values = c("obs midday" = 2, "obs predawn" = 3, "lpj simulated" = 16)) +
   labs(
-    title = "canopy conductance vs leaf water potential (full series)",
+    title = "canopy conductance vs leaf water potential (drought experiment since 2023)",
     subtitle = paste0(climate_txt, "\nmidday = open triangle | predawn = + | LPJ-GUESS-HYD = ●"),
     x = expression(Psi["   leaf"]~"(MPa)"),
     y = expression(G[c]~(mmol~m^{-2}~s^{-1})),
@@ -517,7 +517,7 @@ p_gc_rel_common_single <- ggplot(combined_std) +
                      values = c("obs midday" = 2, "obs predawn" = 3, "lpj simulated" = 16)) +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
   labs(
-    title = "standardized canopy conductance vs leaf water potential (common time)",
+    title = "standardized canopy conductance vs leaf water potential (drought experiment since 2023)",
     subtitle = paste0(climate_txt, "\nmidday = open triangle | predawn = + | LPJ-GUESS-HYD = ●"),
     x = expression(Psi["   leaf"]~"(MPa)"),
     y = expression(G[c]/G[cmax]),
@@ -547,7 +547,7 @@ p_gc_rel_full_single <- ggplot() +
                      values = c("obs midday" = 2, "obs predawn" = 3, "lpj simulated" = 16)) +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
   labs(
-    title = "standardized canopy conductance vs leaf water potential (full time series)",
+    title = "standardized canopy conductance vs leaf water potential (drought experiment since 2023)",
     subtitle = paste0(climate_txt, "\nmidday = open triangle | predawn = + | LPJ-GUESS-HYD = ●"),
     x = expression(Psi["   leaf"]~"(MPa)"),
     y = expression(G[c]/G[cmax]),
@@ -566,7 +566,7 @@ print(p_gc_rel_common_single)
 print(p_gc_psi_full_single)
 print(p_gc_rel_full_single)
 
-ggsave("Figures/Hoelstein/single_panel_Gc_vs_PsiL_common.png", p_gc_psi_common_single, width = 11, height = 8, dpi = 300)
-ggsave("Figures/Hoelstein/single_panel_Gc_vs_PsiL_full.png", p_gc_psi_full_single, width = 11, height = 8, dpi = 300)
-ggsave("Figures/Hoelstein/single_panel_Gc_rel_vs_PsiL_common.png", p_gc_rel_common_single, width = 11, height = 8, dpi = 300)
-ggsave("Figures/Hoelstein/single_panel_Gc_rel_vs_PsiL_full.png", p_gc_rel_full_single, width = 11, height = 8, dpi = 300)
+ggsave("Figures/Hoelstein/single_panel_Gc_vs_PsiL_common_drought.png", p_gc_psi_common_single, width = 11, height = 8, dpi = 300)
+ggsave("Figures/Hoelstein/single_panel_Gc_vs_PsiL_full_drought.png", p_gc_psi_full_single, width = 11, height = 8, dpi = 300)
+ggsave("Figures/Hoelstein/single_panel_Gc_rel_vs_PsiL_common_drought.png", p_gc_rel_common_single, width = 11, height = 8, dpi = 300)
+ggsave("Figures/Hoelstein/single_panel_Gc_rel_vs_PsiL_full_drought.png", p_gc_rel_full_single, width = 11, height = 8, dpi = 300)

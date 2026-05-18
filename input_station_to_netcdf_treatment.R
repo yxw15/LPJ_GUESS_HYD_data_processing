@@ -1,3 +1,5 @@
+setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD/MeteoSwiss")
+
 library(dplyr)
 library(tidyr)
 library(readr)
@@ -295,10 +297,10 @@ process_meteo_to_netcdf <- function(input_csv, out_dir) {
 # ------------------------------------------------------------
 process_meteo_to_netcdf(
   input_csv =
-    "Data/MeteoSwiss_station/all_stations_RUE_replaced_daytime.csv",
+    "MeteoSwiss_station/all_stations_RUE_replaced_daytime.csv",
   
   out_dir =
-    "Data/MeteoSwiss_station_to_netcdf_daytime"
+    "MeteoSwiss_station_to_netcdf_daytime"
 )
 
 # ------------------------------------------------------------
@@ -306,10 +308,10 @@ process_meteo_to_netcdf(
 # ------------------------------------------------------------
 process_meteo_to_netcdf(
   input_csv =
-    "Data/MeteoSwiss_station/all_stations_RUE_replaced_daytime_drought.csv",
+    "MeteoSwiss_station/all_stations_RUE_replaced_daytime_drought.csv",
   
   out_dir =
-    "Data/MeteoSwiss_station_to_netcdf_daytime_drought"
+    "MeteoSwiss_station_to_netcdf_daytime_drought"
 )
 
 cat("\n============================================================\n")

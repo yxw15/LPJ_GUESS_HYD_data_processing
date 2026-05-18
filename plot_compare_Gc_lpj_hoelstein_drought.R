@@ -40,8 +40,8 @@ base_theme <- theme_minimal() +
 # ==========================================================================
 # 2. DATA PREPARATION & FILTER DEFINITION
 # ==========================================================================
-lpj_gcwater_psiL <- read.csv("lpj_guess/lpj_gcwater_psiL.csv")
-lpj_base <- lpj_gcwater_psiL %>% mutate(date = as.Date(date))
+lpj_Gc_psiL <- read.csv("lpj_guess/lpj_Gc_psiL_psiX_psiS_drought.csv")
+lpj_base <- lpj_Gc_psiL %>% mutate(date = as.Date(date))
 
 # Define the strict climate filter dates
 climate_filter_dates <- lpj_base %>%
@@ -83,7 +83,7 @@ process_gc_comparison <- function(apply_climate_filter = FALSE) {
   mod_clean <- lpj_base %>%
     filter(date %in% obs_clean$date) %>% 
     mutate(
-      gc_mmol = gcwater * (eta * (T0 / (T0 + temp_C)) * exp(-0.00012 * h)) * 1000 #
+      gc_mmol = Gc * (eta * (T0 / (T0 + temp_C)) * exp(-0.00012 * h)) * 1000 #
     ) %>%
     group_by(date, species) %>%
     filter(gc_mmol >= quantile(gc_mmol, 0.90, na.rm = TRUE)) %>%
@@ -122,11 +122,13 @@ p1 <- ggplot(data_full, aes(x = date, y = gc_value, group = interaction(Source, 
   scale_color_manual(values = custom_colors) +
   scale_y_continuous(limits = c(0, y_limit_max)) +
   scale_x_date(limits = x_limit_range, date_labels = "%Y", date_breaks = "1 year") +
-  labs(title = "canopy conductance: sap flux density vs. LPJ-GUESS-HYD (control)", 
+  labs(title = "canopy conductance: sap flux density vs. LPJ-GUESS-HYD (drought experiment since 2023)", 
        y = expression(G[c]~(mmol~m^{-2}~s^{-1}))) +
   base_theme
 
-ggsave("Figures/Hoelstein/compare_obs_vs_lpj_Gc_full.png", p1, width = 15, height = 8)
+print(p1)
+
+ggsave("Figures/Hoelstein/compare_obs_vs_lpj_Gc_full_drought.png", p1, width = 15, height = 8)
 
 # --- Plot 2: Climate Filtered Comparison ---
 p2 <- ggplot(data_filtered, aes(x = date, y = gc_value, group = interaction(Source, species, year(date)))) +
@@ -136,9 +138,9 @@ p2 <- ggplot(data_filtered, aes(x = date, y = gc_value, group = interaction(Sour
   scale_color_manual(values = custom_colors) +
   scale_y_continuous(limits = c(0, y_limit_max)) +
   scale_x_date(limits = x_limit_range, date_labels = "%Y", date_breaks = "1 year") +
-  labs(title = "canopy conductance: sap flux density vs. LPJ-GUESS-HYD (control with climate filter)", 
+  labs(title = "canopy conductance: sap flux density vs. LPJ-GUESS-HYD (drought experiment since 2023)", 
        y = expression(G[c]~(mmol~m^{-2}~s^{-1}))) +
   base_theme
 
-ggsave("Figures/Hoelstein/compare_obs_vs_lpj_Gc_climate_filtered.png", p2, width = 15, height = 8)
+ggsave("Figures/Hoelstein/compare_obs_vs_lpj_Gc_climate_filtered_drought.png", p2, width = 15, height = 8)
 

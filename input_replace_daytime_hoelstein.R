@@ -1,5 +1,6 @@
-# setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD/MeteoSwiss")
-setwd("~/Documents/Manuscript3")
+setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD/MeteoSwiss")
+# setwd("~/Documents/Manuscript3")
+
 # ============================================================
 # 0) Setup
 # ============================================================
@@ -14,11 +15,11 @@ library(ggplot2)
 # ============================================================
 
 meteo_daily_wholeday <- read.csv(
-  "Data/MeteoSwiss_station/all_selected_19910101_to_20251231.csv"
+  "MeteoSwiss_station/all_selected_19910101_to_20251231.csv"
 )
 
 data_daytime <- read.csv(
-  "Data/MeteoSwiss_station/RUE_meteo_hoelstein.csv"
+  "MeteoSwiss_station/RUE_meteo_hoelstein.csv"
 )
 
 # ============================================================
@@ -136,7 +137,7 @@ ggplot(rue_plot_data, aes(x = date, y = value)) +
 # 9) Save final dataset
 # ============================================================
 
-out_file <- "Data/MeteoSwiss_station/all_stations_RUE_replaced_daytime.csv"
+out_file <- "MeteoSwiss_station/all_stations_RUE_replaced_daytime.csv"
 
 write.csv(meteo_final, out_file, row.names = FALSE)
 
@@ -177,7 +178,7 @@ meteo_drought <- meteo_final %>%
 
 head(meteo_drought %>% filter(date == "2023-05-01"))
 
-drought_out_file <- "Data/MeteoSwiss_station/all_stations_RUE_replaced_daytime_drought.csv"
+drought_out_file <- "MeteoSwiss_station/all_stations_RUE_replaced_daytime_drought.csv"
 
 write.csv(meteo_drought, drought_out_file, row.names = FALSE)
 

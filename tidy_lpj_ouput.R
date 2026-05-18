@@ -13,7 +13,7 @@ setwd(base_dir)
 # 1. METEO DATA PROCESSING
 # =========================================================
 # Process RUE station data once to use as a master climate reference
-meteo_path <- "MeteoSwiss/MeteoSwiss_station_to_netcdf_daytime/all_stations_RUE_replaced_daytime.csv"
+meteo_path <- "MeteoSwiss/MeteoSwiss_station/all_stations_RUE_replaced_daytime_drought.csv"
 
 data_RUE <- read_csv(meteo_path) %>%
   filter(station_abbr == "RUE") %>%
@@ -68,7 +68,7 @@ final_daily <- species_map %>%
   group_modify(~ {
     sp_name <- .y$species
     col_ref <- .x$colname
-    sp_path <- file.path("results/hoelstein", paste0(sp_name, "_hoelstein"))
+    sp_path <- file.path("results/hoelstein_drought", paste0(sp_name, "_hoelstein"))
     
     # Read all 4 physiological files for this species and join them
     map2(names(var_files), var_files, function(file, var_name) {
@@ -87,7 +87,7 @@ final_daily <- species_map %>%
 # =========================================================
 
 # 1. Export Full Dataset
-write_csv(final_daily, "lpj_guess/lpj_Gc_psiL_psiX_psiS.csv")
+write_csv(final_daily, "lpj_guess/lpj_Gc_psiL_psiX_psiS_drought.csv")
 
 # 2. Apply Climate Filter (defined for summer dry/sunny days)
 final_daily_filtered <- final_daily %>%
@@ -100,7 +100,7 @@ final_daily_filtered <- final_daily %>%
   )
 
 # 3. Export Filtered Dataset
-write_csv(final_daily_filtered, "lpj_guess/lpj_Gc_psiL_psiX_psiS_climate_filter.csv")
+write_csv(final_daily_filtered, "lpj_guess/lpj_Gc_psiL_psiX_psiS_drought_climate_filter.csv")
 
 # 4. Summary Printout
 cat(glue::glue(

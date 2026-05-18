@@ -27,9 +27,9 @@ base_theme <- theme_minimal() +
   )
 
 # Data Ingestion
-lpj_base     <- read.csv("lpj_guess/lpj_Gc_psiL_psiX_psiS.csv") %>% mutate(date = as.Date(date))
-psiL_control <- read.csv("SCCII/psiL_hoelstein_control.csv") %>% mutate(date = as.Date(date))
-psiS_control <- read.csv("SCCII/psiS_hoelstein_control.csv") %>% 
+lpj_base     <- read.csv("lpj_guess/lpj_Gc_psiL_psiX_psiS_drought.csv") %>% mutate(date = as.Date(date))
+psiL_drought <- read.csv("SCCII/psiL_hoelstein_drought.csv") %>% mutate(date = as.Date(date))
+psiS_drought <- read.csv("SCCII/psiS_hoelstein_drought.csv") %>% 
   mutate(date = as.Date(date), psiS_mean = psiS_mean / 1000)
 
 # ==========================================================================
@@ -37,7 +37,7 @@ psiS_control <- read.csv("SCCII/psiS_hoelstein_control.csv") %>%
 # ==========================================================================
 
 # Aggregate Observed Leaf Data
-obs_psiL_daily <- psiL_control %>%
+obs_psiL_daily <- psiL_drought %>%
   group_by(date, species_name) %>%
   summarise(
     psiLmd_obs = mean(md_wp_av, na.rm = TRUE),
@@ -47,7 +47,7 @@ obs_psiL_daily <- psiL_control %>%
   rename(species = species_name)
 
 # Aggregate Observed Soil Data
-obs_psiS_daily <- psiS_control %>%
+obs_psiS_daily <- psiS_drought %>%
   group_by(date) %>%
   summarise(psiS_obs = mean(psiS_mean, na.rm = TRUE), .groups = "drop")
 
@@ -84,7 +84,7 @@ p_common <- ggplot(data_common, aes(x = date)) +
   scale_color_manual(values = cb_palette) +
   ylim(-3.2, 0) +
   labs(
-    title = "water potential time series comparison (common time)",
+    title = "water potential time series comparison (common time, drought experiment since 2023)",
     subtitle = "Model (Color): Solid=L, Dotdash=X, Thin=S | Obs (Grey): ▲=MD Solid, ○=PD Dashed | Obs (Black): ✖=Soil Dotted",
     x = NULL, 
     y = expression(Psi~"(MPa)"), 
@@ -93,7 +93,7 @@ p_common <- ggplot(data_common, aes(x = date)) +
   base_theme
 
 print(p_common)
-ggsave("Figures/Hoelstein/psi_common_time.png", p_common, width = 15, height = 8, bg = "white")
+ggsave("Figures/Hoelstein/psi_common_time_drought.png", p_common, width = 15, height = 8, bg = "white")
 
 data_common_withleaf <- data_common %>% filter(psiL < -0.5)
 
@@ -121,7 +121,7 @@ p_common_withleaf <- ggplot(data_common_withleaf, aes(x = date)) +
   scale_color_manual(values = cb_palette) +
   ylim(-3.2, 0) +
   labs(
-    title = "water potential time series comparison (common time)",
+    title = "water potential time series comparison (common time, drought experiment since 2023)",
     subtitle = "Model (Color): Solid=L, Dotdash=X, Thin=S | Obs (Grey): ▲=MD Solid, ○=PD Dashed | Obs (Black): ✖=Soil Dotted",
     x = NULL, 
     y = expression(Psi~"(MPa)"), 
@@ -130,8 +130,7 @@ p_common_withleaf <- ggplot(data_common_withleaf, aes(x = date)) +
   base_theme
 
 print(p_common_withleaf)
-ggsave("Figures/Hoelstein/psi_common_time_withleaf.png", p_common_withleaf, width = 15, height = 8, bg = "white")
-
+ggsave("Figures/Hoelstein/psi_common_time_drought_withleaf.png", p_common_withleaf, width = 15, height = 8, bg = "white")
 
 # ==========================================================================
 # 4. FIGURE 2: LONG-TERM (2018–2025)
@@ -162,7 +161,7 @@ p_longterm <- ggplot(data_longterm, aes(x = date)) +
   # Scale x-axis for better readability over long term
   scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
   labs(
-    title = "water potential time series (2018–2025)",
+    title = "water potential time series (2018–2025, drought experiment since 2023)",
     subtitle = "LPJ-GUESS-HYD (color): solid=L, dotdash=X, thin=S | Obs: black ▲=MD, black ○=PD, grey ▲=soil",
     x = "", 
     y = expression(Psi~"(MPa)"), 
@@ -171,7 +170,7 @@ p_longterm <- ggplot(data_longterm, aes(x = date)) +
   base_theme
 
 print(p_longterm)
-ggsave("Figures/Hoelstein/psi_longterm_2018_2025.png", p_longterm, width = 15, height = 8, bg = "white")
+ggsave("Figures/Hoelstein/psi_longterm_2018_2025_drought.png", p_longterm, width = 15, height = 8, bg = "white")
 
 
 # ==========================================================================
@@ -276,14 +275,13 @@ p_scatter_final <- ggplot(plot_comparison, aes(x = obs_value, y = model_value, c
   
   labs(
     title = "water potential model vs observation: 1:1 scatter plot",
-    subtitle = "dashed = 1:1 reference line",
+    subtitle = "drought experiment since 2023 | dashed = 1:1 reference line",
     x = expression(Observed~Psi[" "]~"(MPa)"),
     y = expression(Simulated~LPJ-GUESS~Psi[" "]~"(MPa)"),
     color = "comparison Pair",
     shape = "comparison Pair"
   ) +
   ylim(-4, 0) +
-  base_theme +
   base_theme +
   theme(
     legend.position = "bottom", 
@@ -294,7 +292,7 @@ p_scatter_final <- ggplot(plot_comparison, aes(x = obs_value, y = model_value, c
 
 # Print and Save
 print(p_scatter_final)
-ggsave("Figures/Hoelstein/psi_1to1.png", p_scatter_final, width = 16, height = 6, bg = "white")
+ggsave("Figures/Hoelstein/psi_1to1_drought.png", p_scatter_final, width = 16, height = 6, bg = "white")
 
 # ==========================================================================
 # 4. CLIMATE TIME SERIES VISUALIZATION
