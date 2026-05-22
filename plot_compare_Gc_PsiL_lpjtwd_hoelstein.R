@@ -84,6 +84,12 @@ mod_proc <- lpj_output_filter %>%
   select(treatment, species, date, gc = Gc, psiL = psi_leaf) %>%
   mutate(species = factor(species, levels = species_order))
 
+# Helper to catch edge cases if an unexpected column setup exists
+mod_proc_monthly <- mod_proc %>%
+  mutate(year = year(date), month = month(date)) %>%
+  group_by(species, treatment, year, month) %>%
+  summarise(gc = mean(gc, na.rm = TRUE), psiL = mean(psiL, na.rm = TRUE), .groups = "drop")
+
 # Aggregate Leaf Water Potential (md_wp_av -> midday, pd_wp_av -> predawn)
 obs_psi <- obs_leaf_raw %>%
   group_by(date, species, treatment) %>%
@@ -112,21 +118,17 @@ obs_filtered_climate <- obs_combined %>%
 
 # Combine datasets for Common-Time bounds
 combined_data_lpj_obs <- mod_proc %>%
-  inner_join(obs_combined, by = c("date", "species", "treatment")) %>%
-  filter(
-    date %in% climate_filter_dates,
-    month(date) %in% c(6, 7, 8, 9)
-  ) %>%
-  drop_na(gc_obs, gc, psiL, psiL_md)
+  inner_join(obs_filtered_climate, by = c("date", "species", "treatment")) 
 
 # ==============================================================================
-# 5. MIN-MAX STANDARDIZATION & AGGREGATION
+# 5. MINIMUM VALUE STANDARDIZATION & AGGREGATION
 # ==============================================================================
 
-# 1. Common Time Dataset Standardization
+# 1. Common Time Dataset Standardization (True minimum value baseline)
 combined_std_lpj_obs <- combined_data_lpj_obs %>%
   group_by(species, treatment) %>%
   mutate(
+    # Changed from 10% quantile to absolute minimum value
     gc_min_obs = min(gc_obs, na.rm = TRUE),
     gc_min     = min(gc, na.rm = TRUE),
     
@@ -139,7 +141,6 @@ combined_std_lpj_obs <- combined_data_lpj_obs %>%
     gc_rel_obs = pmin(pmax(gc_rel_obs, 0), 1),
     gc_rel_mod = pmin(pmax(gc_rel_mod, 0), 1)
   ) %>% 
-  # filter(gc_rel_obs > 0 & gc_rel_obs < 1 & gc_rel_mod > 0 & gc_rel_mod < 1) %>% 
   ungroup()
 
 # Print out explicit counts across the structured grid matrix
@@ -155,33 +156,32 @@ point_counts <- combined_data_lpj_obs %>%
 print("--- Data Point Counts per Facet Panel ---")
 print(point_counts)
 
-# 2. Full Simulated Series Standardization (Daily)
+# 2. Full Simulated Series Standardization (Daily true minimum value baseline)
 data_full_model_std <- mod_proc %>%
   filter(date %in% climate_filter_dates, month(date) %in% c(6, 7, 8, 9)) %>%
   group_by(species, treatment) %>%
   mutate(
+    # Changed from 10% quantile to absolute minimum value
     gc_min = min(gc, na.rm = TRUE),
     gc_max = mean(gc[gc >= quantile(gc, 0.90, na.rm = TRUE)], na.rm = TRUE),
     gc_rel_mod = (gc - gc_min) / (gc_max - gc_min),
     gc_rel_mod = pmin(pmax(gc_rel_mod, 0), 1)
   ) %>%
-  # filter(gc_rel_mod > 0 & gc_rel_mod < 1) %>% 
   ungroup() 
 
-# 3. Full Observed Series Standardization
+# 3. Full Observed Series Standardization (Daily true minimum value baseline)
 data_obs_full_std <- obs_filtered_climate %>%
   group_by(species, treatment) %>%
   mutate(
+    # Changed from 10% quantile to absolute minimum value
     gc_min_obs = min(gc_obs, na.rm = TRUE),
     gc_max_obs = mean(gc_obs[gc_obs >= quantile(gc_obs, 0.90, na.rm = TRUE)], na.rm = TRUE),
     gc_rel_obs = (gc_obs - gc_min_obs) / (gc_max_obs - gc_min_obs),
     gc_rel_obs = pmin(pmax(gc_rel_obs, 0), 1)
   ) %>%
-  # filter(gc_rel_obs > 0 & gc_rel_obs < 1) %>% 
-  ungroup
-  
+  ungroup()
 
-# 1. First aggregate to Monthly Means
+# 4. Full Monthly Simulated Series Standardization
 data_full_model_monthly_raw <- mod_proc %>%
   filter(date %in% climate_filter_dates, month(date) %in% c(6, 7, 8, 9)) %>%
   mutate(
@@ -195,15 +195,14 @@ data_full_model_monthly_raw <- mod_proc %>%
     .groups = "drop"
   )
 
-# 2. Then standardize the monthly values using the 90% quantile of the monthly means
 data_full_model_monthly_std <- data_full_model_monthly_raw %>%
   group_by(species, treatment) %>%
   mutate(
+    # Changed from 10% quantile to absolute minimum value of monthly means
     gc_min     = min(gc, na.rm = TRUE),
-    # Calculates the 90% quantile from the monthly means, then averages values above it
     gc_max     = mean(gc[gc >= quantile(gc, 0.90, na.rm = TRUE)], na.rm = TRUE),
     gc_rel_mod = (gc - gc_min) / (gc_max - gc_min),
-    gc_rel_mod = pmin(pmax(gc_rel_mod, 0), 1) # Clamps values between 0 and 1
+    gc_rel_mod = pmin(pmax(gc_rel_mod, 0), 1) 
   ) %>%
   ungroup()
 
@@ -248,10 +247,7 @@ p_gc_psi_full <- ggplot() +
 print(p_gc_psi_full)
 
 # Figure 3: Relative Gc/Gcmax (Common Time Bounds strictly 0-1)
-p_gc_rel_common <- ggplot(
-  combined_std_lpj_obs
-    # filter(gc_rel_obs > 0, gc_rel_obs < 1, gc_rel_mod > 0, gc_rel_mod < 1)
-) +
+p_gc_rel_common <- ggplot(combined_std_lpj_obs) +
   geom_point(aes(x = psiL_md, y = gc_rel_obs), shape = 2, color = "black", alpha = 0.8, size = pt_size, na.rm = TRUE) +
   geom_point(aes(x = psiL_pd, y = gc_rel_obs), color = "black", shape = 3, alpha = 0.8, size = pt_size, na.rm = TRUE) +
   geom_point(aes(x = psiL, y = gc_rel_mod, color = species), alpha = 1, size = pt_size + 0.5, na.rm = TRUE) +
@@ -260,7 +256,7 @@ p_gc_rel_common <- ggplot(
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
   labs(
     title = "standardized canopy conductance vs leaf water potential (common time)",
-    subtitle = "min-max normalized: showing internal values (excluding bound 0 and 1 points)\nmidday = open triangle | predawn = black + | lpj = colored",
+    subtitle = "min-max (true min to 90% quantile) normalized: showing internal values\nmidday = open triangle | predawn = black + | lpj = colored",
     x = expression(Psi["leaf"]~"(MPa)"),
     y = expression(G[c]/G[cmax]),
     color = ""
@@ -282,7 +278,6 @@ p_gc_rel_full <- ggplot() +
   ) +
   geom_point(
     data = data_full_model_monthly_std, 
-      # filter(gc_rel_mod > 0, gc_rel_mod < 1), 
     aes(x = psiL, y = gc_rel_mod, color = species), 
     alpha = 0.65, size = pt_size + 0.5, na.rm = TRUE
   ) +
@@ -291,7 +286,7 @@ p_gc_rel_full <- ggplot() +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
   labs(
     title = "standardized canopy conductance vs leaf water potential (full monthly mean)",
-    subtitle = "showing internal values (excluding 0 and 1) | lpj = colored monthly mean",
+    subtitle = "true min to 90% quantile normalization structure | lpj = colored monthly mean",
     x = expression(Psi["leaf"]~"(MPa)"),
     y = expression(G[c]/G[cmax]),
     color = ""
@@ -341,13 +336,14 @@ p_gc_rel_common_single <- ggplot() +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
   labs(
     title = "standardized canopy conductance vs leaf water potential (common time)",
-    subtitle = tolower(paste0(climate_txt, " (excluding bound 0 and 1 points)\nmidday = open triangle | predawn = + | lpj-guess-hyd = ●")),
+    subtitle = tolower(paste0(climate_txt, " (true min to 90% standardized bounds)\nmidday = open triangle | predawn = + | lpj-guess-hyd = ●")),
     x = expression(Psi["leaf"]~"(MPa)"),
     y = expression(G[c]/G[cmax]),
     color = "species"
   ) + base_theme
 
 print(p_gc_rel_common_single)
+
 # ==============================================================================
 # 7b. ADDITIONAL SINGLE PANEL DESIGNS (Full Monthly Mean vs Full Daily)
 # ==============================================================================
@@ -390,7 +386,7 @@ p_gc_rel_full_single_monthly_mean <- ggplot() +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
   labs(
     title = "standardized canopy conductance vs leaf water potential (full monthly mean)",
-    subtitle = "showing internal values (excluding bound 0 and 1 points)",
+    subtitle = "showing internal values using robust true min to 90% baseline thresholds",
     x = expression(Psi["leaf"]~"(MPa)"),
     y = expression(G[c]/G[cmax]),
     color = "species"
@@ -436,7 +432,7 @@ p_gc_rel_full_single_daily <- ggplot() +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
   labs(
     title = "standardized canopy conductance vs leaf water potential (full daily data)",
-    subtitle = "showing internal values (excluding bound 0 and 1 points)",
+    subtitle = "showing internal values evaluated against robust true min to 90% baselines",
     x = expression(Psi["leaf"]~"(MPa)"),
     y = expression(G[c]/G[cmax]),
     color = "species"
@@ -447,31 +443,34 @@ print(p_gc_rel_full_single_daily)
 # 9. CURVE FITTING & SLOPE CALCULATION AT 0.5 Gc/Gcmax
 # ==============================================================================
 
-# Restructure long datasets to extract individual data streams cleanly
 fit_exp_slope <- function(df) {
   if (nrow(df) < 5) return(data.frame(slope_at_05 = NA))
-  # Exponential log transform strategy: log(y) = log(a) + b*x -> dy/dx at y=0.5 is 0.5 * b
   mod <- lm(log(gc_rel) ~ psiL, data = df)
   b_parameter <- coef(mod)[2]
   data.frame(slope_at_05 = 0.5 * b_parameter)
 }
 
-# Compile data streams across contexts
-stream_common_md <- combined_std_lpj_obs %>% filter(gc_rel_obs > 0, gc_rel_obs < 1) %>% select(treatment, species, psiL = psiL_md, gc_rel = gc_rel_obs) %>% mutate(data_type = "obs midday", timeline = "common time")
-stream_common_pd <- combined_std_lpj_obs %>% filter(gc_rel_obs > 0, gc_rel_obs < 1) %>% select(treatment, species, psiL = psiL_pd, gc_rel = gc_rel_obs) %>% mutate(data_type = "obs predawn", timeline = "common time")
-stream_common_mod<- combined_std_lpj_obs %>% filter(gc_rel_mod > 0, gc_rel_mod < 1) %>% select(treatment, species, psiL, gc_rel = gc_rel_mod)          %>% mutate(data_type = "lpj simulated", timeline = "common time")
+stream_common_md <- combined_std_lpj_obs %>% filter(gc_rel_obs > 0, gc_rel_obs < 1) %>% select(treatment, species, psiL = psiL_md, gc_rel = gc_rel_obs) %>% 
+  mutate(data_type = "obs midday", timeline = "common time")
+stream_common_pd <- combined_std_lpj_obs %>% filter(gc_rel_obs > 0, gc_rel_obs < 1) %>% select(treatment, species, psiL = psiL_pd, gc_rel = gc_rel_obs) %>% 
+  mutate(data_type = "obs predawn", timeline = "common time")
+stream_common_mod<- combined_std_lpj_obs %>% filter(gc_rel_mod > 0, gc_rel_mod < 1) %>% select(treatment, species, psiL, gc_rel = gc_rel_mod)          %>% 
+  mutate(data_type = "lpj simulated", timeline = "common time")
 
-stream_full_md   <- data_obs_full_std %>% filter(gc_rel_obs > 0, gc_rel_obs < 1) %>% select(treatment, species, psiL = psiL_md, gc_rel = gc_rel_obs)      %>% mutate(data_type = "obs midday", timeline = "full time range")
-stream_full_pd   <- data_obs_full_std %>% filter(gc_rel_obs > 0, gc_rel_obs < 1) %>% select(treatment, species, psiL = psiL_pd, gc_rel = gc_rel_obs)      %>% mutate(data_type = "obs predawn", timeline = "full time range")
-stream_full_mth  <- data_full_model_monthly_std %>% filter(gc_rel_mod > 0, gc_rel_mod < 1) %>% select(treatment, species, psiL, gc_rel = gc_rel_mod)  %>% mutate(data_type = "lpj monthly mean", timeline = "full time range")
-stream_full_dly  <- data_full_model_std %>% filter(gc_rel_mod > 0, gc_rel_mod < 1) %>% select(treatment, species, psiL, gc_rel = gc_rel_mod)          %>% mutate(data_type = "lpj daily simulated", timeline = "full time range")
+stream_full_md   <- data_obs_full_std %>% filter(gc_rel_obs > 0, gc_rel_obs < 1) %>% select(treatment, species, psiL = psiL_md, gc_rel = gc_rel_obs)      %>% 
+  mutate(data_type = "obs midday", timeline = "full time range")
+stream_full_pd   <- data_obs_full_std %>% filter(gc_rel_obs > 0, gc_rel_obs < 1) %>% select(treatment, species, psiL = psiL_pd, gc_rel = gc_rel_obs)      %>% 
+  mutate(data_type = "obs predawn", timeline = "full time range")
+stream_full_mth  <- data_full_model_monthly_std %>% filter(gc_rel_mod > 0, gc_rel_mod < 1) %>% select(treatment, species, psiL, gc_rel = gc_rel_mod)  %>% 
+  mutate(data_type = "lpj monthly mean", timeline = "full time range")
+stream_full_dly  <- data_full_model_std %>% filter(gc_rel_mod > 0, gc_rel_mod < 1) %>% select(treatment, species, psiL, gc_rel = gc_rel_mod)          %>% 
+  mutate(data_type = "lpj daily simulated", timeline = "full time range")
 
 master_long_dataset <- bind_rows(
   stream_common_md, stream_common_pd, stream_common_mod,
   stream_full_md, stream_full_pd, stream_full_mth, stream_full_dly
 ) %>% drop_na(psiL, gc_rel)
 
-# Execute slope parameterization grouped matrix processing
 calculated_slopes <- master_long_dataset %>%
   group_by(timeline, treatment, species, data_type) %>%
   do(fit_exp_slope(.)) %>%
@@ -484,7 +483,6 @@ calculated_slopes <- master_long_dataset %>%
 print("--- calculated exponential curve slopes at gc/gcmax = 0.5 ---")
 print(as.data.frame(calculated_slopes))
 
-# Create barplot displaying calculated sensitivities side-by-side
 p_slopes_bar <- ggplot(calculated_slopes, aes(x = data_type, y = slope_at_05, fill = species)) +
   geom_bar(stat = "identity", position = "dodge", color = "black", linewidth = 0.2, alpha = 0.9) +
   facet_grid(timeline ~ treatment) +
@@ -502,22 +500,10 @@ p_slopes_bar <- ggplot(calculated_slopes, aes(x = data_type, y = slope_at_05, fi
     y = "instantaneous slope (conductance sensitivity)",
     fill = "species"
   )
-
+print(p_slopes_bar)
 # ==============================================================================
 # 10. PRINT & EXPORT TARGET DIRECTORY
 # ==============================================================================
-
-print(p_gc_psi_common)
-print(p_gc_psi_common_single)
-print(p_gc_psi_full)
-print(p_gc_psi_full_single_monthly_mean)
-print(p_gc_psi_full_single_daily)
-print(p_gc_rel_common)
-print(p_gc_rel_common_single)
-print(p_gc_rel_full)
-print(p_gc_rel_full_single_monthly_mean)
-print(p_gc_rel_full_single_daily)
-print(p_slopes_bar)
 
 out_dir <- "Figures/compare_Gc_PsiL_lpjtwd_hoelstein"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
@@ -533,3 +519,6 @@ ggsave(file.path(out_dir, "single_panel_Gc_rel_vs_PsiL_full_monthly.png"), p_gc_
 ggsave(file.path(out_dir, "single_panel_Gc_vs_PsiL_full_daily.png"), p_gc_psi_full_single_daily, width = 14, height = 8, dpi = 300)
 ggsave(file.path(out_dir, "single_panel_Gc_rel_vs_PsiL_full_daily.png"), p_gc_rel_full_single_daily, width = 14, height = 8, dpi = 300)
 ggsave(file.path(out_dir, "calculated_slopes_comparison_bar.png"), p_slopes_bar, width = 12, height = 9, dpi = 300)
+
+print(p_gc_rel_common_single)
+print(p_gc_rel_full_single_daily)
