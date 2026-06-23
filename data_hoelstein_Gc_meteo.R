@@ -122,3 +122,4 @@ sap_flux_gc_hoelstein_meteo <- sap_flux_gc %>%
 
 head(sap_flux_gc_hoelstein_meteo)
 write.csv(sap_flux_gc_hoelstein_meteo, file = "SCCII/sap_flux_gc_hoelstein_meteo.csv", row.names = FALSE)
+

@@ -94,7 +94,7 @@ final_daily <- map_dfr(treatments, function(trt) {
       col_ref <- .x$colname
       
       # Dynamically switch folder between 'control' and 'drought'
-      sp_path <- file.path("results_twd", trt, sp_name)
+      sp_path <- file.path("results_lpj/results_hoelstein_twd", trt, sp_name)
       
       # Read all physiological files for this species and join them
       map2(names(var_files), var_files, function(file, var_name) {
@@ -121,8 +121,8 @@ final_daily <- map_dfr(treatments, function(trt) {
 # =========================================================
 
 # 1. Define descriptive file names based on included contents
-output_name_full <- "lpj_guess/lpj_control_drought_Gc_psiL_psiX_psiS_stem_diameter_twd_stem_rwc.csv"
-output_name_filtered <- "lpj_guess/lpj_control_drought_Gc_psiL_psiX_psiS_stem_diameter_twd_stem_rwc_climate_filter.csv"
+output_name_full <- "lpj_guess/lpj_guess_twd/lpj_control_drought_Gc_psiL_psiX_psiS_stem_diameter_twd_stem_rwc.csv"
+output_name_filtered <- "lpj_guess/lpj_guess_twd/lpj_control_drought_Gc_psiL_psiX_psiS_stem_diameter_twd_stem_rwc_climate_filter.csv"
 
 # Create directory if it doesn't exist
 if(!dir.exists("lpj_guess")) {
@@ -166,3 +166,4 @@ final_daily %>%
     .groups = "drop"
   ) %>%
   print(n = Inf)
+

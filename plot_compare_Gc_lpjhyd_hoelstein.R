@@ -9,9 +9,6 @@ library(tidyr)
 
 setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD")
 
-# create directory if it doesn't exist
-dir.create("Figures/compare_Gc_lpjtwd_hoelstein", recursive = TRUE, showWarnings = FALSE)
-
 # aesthetics (lowercased factor levels to ensure lowercase strip texts)
 species_levels <- c("oak", "beech", "spruce", "pine")
 species_colors <- c("oak" = "#E69F00", "beech" = "#0072B2", "spruce" = "#009E73", "pine" = "#F0E442")
@@ -37,7 +34,7 @@ base_theme <- theme_minimal() +
 # 2. DATA PREPARATION & FILTER DEFINITION
 # ==========================================================================
 lpj_output_filter <- read.csv("lpj_guess/lpj_guess_twd/lpj_control_drought_Gc_psiL_psiX_psiS_stem_diameter_twd_stem_rwc_climate_filter.csv")
-sap_flux_gc_filter <- read.csv("SCCII/sap_flux_gc_daytime_Climate_filter.csv")
+sap_flux_gc_filter <- read.csv("SCCII/sap_daily_filter.csv")
 
 sap_flux_gc_filter <- sap_flux_gc_filter %>%
   mutate(treatment = case_when(
@@ -442,8 +439,8 @@ plot_boxplot_daily <- ggplot(daily_combined, aes(x = species, y = diff, fill = t
   geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
   scale_fill_manual(name = "treatment", values = c("control" = "#1f77b4", "drought" = "#d62728")) +
   labs(title = "distribution of daily differences: daily mean method",
-       subtitle = "boxplot shows median, quartiles, and outliers",
-       x = "species", y = "difference (m s-1)") +
+       subtitle = "",
+       x = "species", y = "difference Gc (m s-1)") +
   base_theme + theme(axis.text.x = element_text(angle = 0, size = 11))
 
 plot_boxplot_top10 <- ggplot(top10_combined, aes(x = species, y = diff, fill = treatment)) +
@@ -451,9 +448,29 @@ plot_boxplot_top10 <- ggplot(top10_combined, aes(x = species, y = diff, fill = t
   geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
   scale_fill_manual(name = "treatment", values = c("control" = "#1f77b4", "drought" = "#d62728")) +
   labs(title = "distribution of daily differences: top 10% quantile method",
-       subtitle = "boxplot shows median, quartiles, and outliers",
-       x = "species", y = "difference (m s-1)") +
+       subtitle = "",
+       x = "species", y = "difference Gc (m s-1)") +
   base_theme + theme(axis.text.x = element_text(angle = 0, size = 11))
+
+
+# 1. Determine common y-axis limits to ensure consistency
+# You can find the min/max across both datasets
+all_diffs <- c(daily_combined$diff, top10_combined$diff)
+y_limits <- c(min(all_diffs, na.rm = TRUE), max(all_diffs, na.rm = TRUE))
+
+# 2. Update your plots to use these limits
+# Applying limits to both ensures they are visually comparable
+p1 <- plot_boxplot_daily + ylim(y_limits)
+p2 <- plot_boxplot_top10 + ylim(y_limits)
+
+# 3. Combine them side-by-side
+final_plot <- p1 + p2 + 
+  plot_layout(guides = 'collect', ncol = 2) & 
+  theme(legend.position = 'bottom')
+
+# 5. Save the result
+ggsave("Figures/lpj_guess_hyd_twd/combined_boxplots_diff_Gc.png", 
+       final_plot, width = 14, height = 7, dpi = 300)
 
 # ==========================================================================
 # 13. DISPLAY ALL PLOTS
@@ -515,4 +532,3 @@ write.csv(scatter_stats_top10, "Figures/lpj_guess_hyd_twd/scatter_statistics_top
 write.csv(diff_summary, "Figures/lpj_guess_hyd_twd/difference_statistics.csv", row.names = FALSE)
 write.csv(daily_combined, "Figures/lpj_guess_hyd_twd/daily_differences_daily_mean.csv", row.names = FALSE)
 write.csv(top10_combined, "Figures/lpj_guess_hyd_twd/daily_differences_top10.csv", row.names = FALSE)
-

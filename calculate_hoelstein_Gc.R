@@ -417,3 +417,86 @@ sap_flux_gc <- sap_flux_gc %>%
 write.csv(sap_flux_gc, file = "SCCII/sap_flux_gc.csv", row.names = FALSE)
 
 head(sap_flux_gc)
+
+# ============================================================
+# Filter climate and mean for daytime
+# ============================================================
+
+sap_flux_gc_filter <- read.csv("SCCII/sap_daily_filter.csv")
+sap_flux_gc_hoelstein_meteo <- read.csv("SCCII/sap_flux_gc_hoelstein_meteo.csv")
+
+climate_txt <- paste(
+  "temperature > 14°C,", "precipitation < 1 mm,", "global radiation > 150 W/m²,", "VPD > 0.3 kPa"
+)
+
+library(dplyr)
+library(lubridate)
+
+# Aggregate sap_flux_gc_hoelstein_meteo to daily format
+daily_data <- sap_flux_gc_hoelstein_meteo %>%
+  # Convert timestamp to date
+  mutate(date = as.Date(timestamp)) %>%
+  
+  # Filter for daytime hours (7:30-19:30)
+  filter(hour(timestamp) >= 7 & minute(timestamp) >= 30 | 
+           hour(timestamp) <= 19 & minute(timestamp) <= 30) %>%
+  
+  # Group by date, species, tree_id, tree_nr, treatment
+  group_by(date, species, tree_id, tree_nr, treatment) %>%
+  
+  # Calculate daily aggregates
+  summarise(
+    # Temperature (mean of daytime hours)
+    temp_crane = mean(Temp_degC_crane, na.rm = TRUE),
+    temp_meteo = mean(temp, na.rm = TRUE),
+    
+    # Radiation (mean of daytime hours)
+    radiation_crane = mean(Solar_Wm.2_crane, na.rm = TRUE),
+    radiation_meteo = mean(radiation, na.rm = TRUE),
+    
+    # VPD (mean of daytime hours)
+    vpd_crane = mean(vpd, na.rm = TRUE),
+    vpd_meteo = mean(vpd_meteo, na.rm = TRUE),
+    
+    # Humidity (mean of daytime hours)
+    relhum_crane = mean(Humid_percent_crane, na.rm = TRUE),
+    relhum_meteo = mean(relhum, na.rm = TRUE),
+    
+    # Wind (mean of daytime hours)
+    wind_meteo = mean(wind, na.rm = TRUE),
+    
+    # Precipitation (sum of entire day, NAs treated as 0)
+    precip_crane = sum(ifelse(is.na(dRain_mm_cranegap), 0, dRain_mm_cranegap), na.rm = TRUE),
+    precip_meteo = sum(ifelse(is.na(precip), 0, precip), na.rm = TRUE),
+    
+    # Sap flux (mean of daytime hours)
+    sfd = mean(sfd, na.rm = TRUE),
+    G_asw = mean(G_asw, na.rm = TRUE),
+    G_ms = mean(G_ms, na.rm = TRUE),
+    
+    # Keep original tree information
+    .groups = 'drop'
+  ) %>%
+  
+  # Add X column (row number)
+  mutate(X = row_number()) %>%
+  
+  # Reorder columns to match sap_flux_gc_filter
+  select(X, date, species, tree_id, tree_nr, treatment,
+         relhum_crane, temp_crane, radiation_crane, vpd_crane,
+         temp_meteo, relhum_meteo, wind_meteo, radiation_meteo, vpd_meteo,
+         precip_crane, precip_meteo, sfd, G_asw, G_ms)
+
+# Apply climate filter
+daily_filtered <- daily_data %>%
+  filter(
+    temp_crane > 14,           # Temperature > 14°C
+    precip_crane < 1,          # Precipitation < 1 mm (using crane data)
+    radiation_crane > 150,     # Global radiation > 150 W/m²
+    vpd_crane > 0.3            # VPD > 0.3 kPa
+  )
+
+# View results
+head(daily_filtered)
+
+write.csv(sap_flux_gc_filter, file = "SCCII/sap_flux_gc_daytime_Climate_filter.csv", row.names = FALSE)

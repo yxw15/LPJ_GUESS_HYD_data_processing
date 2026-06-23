@@ -1,5 +1,5 @@
 # ==========================================================================
-# 1. SETUP, THEME, & PATHS
+# 1. setup, theme, & paths
 # ==========================================================================
 library(dplyr)
 library(ggplot2)
@@ -29,14 +29,14 @@ base_theme <- theme_minimal() +
     panel.grid.minor  = element_blank()
   )
 
-dir.create("Figures/compare_Psi_lpjtwd_hoelstein", recursive = TRUE, showWarnings = FALSE)
+dir.create("Figures/lpj_guess_hyd_twd", recursive = TRUE, showWarnings = FALSE)
 
 # ==========================================================================
-# 2. RAW DATA INGESTION & STANDARDIZATION (All Unified to MPa)
+# 2. raw data ingestion & standardization (all unified to mpa)
 # ==========================================================================
 
 # LPJ Model Output (Already in MPa)
-lpj_raw <- read.csv("lpj_guess/lpj_control_drought_Gc_psiL_psiX_psiS_stem_diameter_twd_stem_rwc.csv") %>%
+lpj_raw <- read.csv("lpj_guess/lpj_guess_twd/lpj_control_drought_Gc_psiL_psiX_psiS_stem_diameter_twd_stem_rwc.csv") %>%
   mutate(date = as.Date(date), month = month(date)) %>%
   filter(month >= 6 & month <= 9) %>%
   filter(!is.na(psi_leaf), !is.na(psi_xylem), !is.na(psi_soil), !is.na(species), !is.na(treatment)) %>%
@@ -73,7 +73,7 @@ obs_leaf_processed <- obs_leaf_raw %>%
   )
 
 # ==========================================================================
-# 3. INTERSECTION MATRIX (Dates where ALL water potentials exist)
+# 3. intersection matrix (dates where ALL water potentials exist)
 # ==========================================================================
 
 common_dates_full <- lpj_raw %>%
@@ -88,40 +88,53 @@ obs_intersect <- obs_leaf_processed %>%
   inner_join(common_dates_full, by = c("date", "species", "treatment")) %>%
   left_join(obs_soil, by = c("date", "treatment")) 
 
-# ==========================================================================
-# 4. UNIFIED TIME-SERIES PLOT
-# ==========================================================================
-plot_common_intersection <- ggplot() +
-  geom_line(data = lpj_intersect, aes(x = date, y = psi_soil_model, color = species), linewidth = 0.4, alpha = 0.6) +
-  geom_line(data = lpj_intersect, aes(x = date, y = psi_xylem_model, color = species), linetype = "dotdash", linewidth = 0.6) +
-  geom_line(data = lpj_intersect, aes(x = date, y = psi_leaf_model, color = species), linewidth = 1.1) +
-  
-  geom_line(data = obs_intersect, aes(x = date, y = psi_leaf_md_obs), color = "red", linewidth = 0.5) +
-  geom_point(data = obs_intersect, aes(x = date, y = psi_leaf_md_obs), color = "red", shape = 17, size = 1.8) +
-  
-  geom_line(data = obs_intersect, aes(x = date, y = psi_leaf_pd_obs), color = "blue", linewidth = 0.5, linetype = "dashed") +
-  geom_point(data = obs_intersect, aes(x = date, y = psi_leaf_pd_obs), color = "blue", shape = 15, size = 1.6) +
-  
-  geom_line(data = obs_intersect, aes(x = date, y = psi_soil_obs), color = "black", linetype = "dotted", linewidth = 0.8) +
-  geom_point(data = obs_intersect, aes(x = date, y = psi_soil_obs), color = "black", shape = 18, size = 2.2) +
-  
-  facet_grid(treatment ~ species, scales = "free_y") +
-  scale_color_manual(values = species_colors) +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
-  ylim(-3.5, 0) +
-  labs(
-    title = "Water Potential Intersection Comparison (June-September)",
-    subtitle = "Model: Thick Solid=ψL, Dotdash=ψX, Thin=ψS | Obs: ▲=ψL Midday (red), ■=ψL Predawn (blue), ◆=ψS Soil (black dotted)",
-    x = "Year", y = expression(Psi ~ (MPa)), color = "Species Framework"
-  ) +
-  base_theme
+# ==========================================
+# 4. unified time-series plot
+# ==========================================
+# Define the treatments you want to plot
+treatments <- unique(lpj_intersect$treatment)
 
-ggsave("Figures/compare_Psi_lpjtwd_hoelstein/water_potential_common.png", 
-       plot_common_intersection, width = 16, height = 10, dpi = 300)
+for (t in treatments) {
+  
+  # Filter both data frames for the current treatment
+  lpj_sub <- lpj_intersect[lpj_intersect$treatment == t, ]
+  obs_sub <- obs_intersect[obs_intersect$treatment == t, ]
+  
+  # Generate the plot
+  plot_t <- ggplot() +
+    geom_line(data = lpj_sub, aes(x = date, y = psi_soil_model, color = species), linewidth = 0.4, alpha = 0.6) +
+    geom_line(data = lpj_sub, aes(x = date, y = psi_xylem_model, color = species), linetype = "dotdash", linewidth = 0.6) +
+    geom_line(data = lpj_sub, aes(x = date, y = psi_leaf_model, color = species), linewidth = 1.1) +
+    
+    geom_line(data = obs_sub, aes(x = date, y = psi_leaf_md_obs), color = "grey", linewidth = 0.5) +
+    geom_point(data = obs_sub, aes(x = date, y = psi_leaf_md_obs), color = "grey", shape = 17, size = 1.8) +
+    
+    geom_line(data = obs_sub, aes(x = date, y = psi_leaf_pd_obs), color = "grey40", linewidth = 0.5, linetype = "dashed") +
+    geom_point(data = obs_sub, aes(x = date, y = psi_leaf_pd_obs), color = "grey40", shape = 15, size = 1.6) +
+    
+    geom_line(data = obs_sub, aes(x = date, y = psi_soil_obs), color = "black", linetype = "dotted", linewidth = 0.8) +
+    geom_point(data = obs_sub, aes(x = date, y = psi_soil_obs), color = "black", shape = 18, size = 2.2) +
+    
+    # Update facet: remove 'treatment' from formula
+    facet_grid(. ~ species, scales = "free_y") + 
+    scale_color_manual(values = species_colors) +
+    scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+    ylim(-3.5, 0) +
+    labs(
+      title = paste("Water potential intersection:", t),
+      subtitle = "Model: thick solid=\u03c8l, dotdash=\u03c8x, thin=\u03c8s | Obs: \u25b2=\u03c8l md, \u25a0=\u03c8l pd, \u25c6=\u03c8s",
+      x = "year", y = expression(psi ~ (mpa)), color = "Species"
+    ) +
+    base_theme
+  
+  # Save with a dynamic filename
+  ggsave(paste0("Figures/lpj_guess_hyd_twd/water_potential_", t, ".png"), 
+         plot_t, width = 16, height = 5, dpi = 300) # Adjusted height since we removed a facet row
+}
 
-# ==========================================================================
-# 5. DATA PAIR COHORT RESTRUCTURING (Flat Matrix for All 5 Evaluation Pairs)
-# ==========================================================================
+# ==========================================
+# 5. data pair cohort restructuring (flat matrix for all 5 evaluation pairs)
+# ==========================================
 combined_matrix <- lpj_intersect %>%
   inner_join(obs_intersect, by = c("date", "species", "treatment"))
 
@@ -141,9 +154,9 @@ flat_evaluation_pairs <- bind_rows(
     diff = model_val - obs_val
   )
 
-# ==========================================================================
-# 6. CALCULATE SCATTER STATISTICS PER SPECIES, TREATMENT, AND PAIR
-# ==========================================================================
+# ==========================================
+# 6. calculate scatter statistics per species, treatment, and pair
+# ==========================================
 scatter_stats_psi <- flat_evaluation_pairs %>%
   group_by(species, treatment, pair_id) %>%
   summarise(
@@ -157,22 +170,22 @@ scatter_stats_psi <- flat_evaluation_pairs %>%
     .groups = "drop"
   )
 
-write.csv(scatter_stats_psi, "Figures/compare_Psi_lpjtwd_hoelstein/scatter_statistics_psi_5pairs.csv", row.names = FALSE)
+write.csv(scatter_stats_psi, "Figures/lpj_guess_hyd_twd/scatter_statistics_psi_5pairs.csv", row.names = FALSE)
 
-# ==========================================================================
-# 7. GENERATE ANNOTATED 1:1 SCATTER PLOTS 
-# ==========================================================================
+# ==========================================
+# 7. generate annotated 1:1 scatter plots 
+# ==========================================
 create_scatter_psi_plot <- function(target_treatment, plot_title) {
   data_subset <- flat_evaluation_pairs %>% filter(treatment == target_treatment)
   stats_subset <- scatter_stats_psi %>% filter(treatment == target_treatment)
   
   # Map human-readable text labels for the facets
   pair_labels <- c(
-    "psiL_vs_md"   = "Model ψL vs Obs Midday",
-    "psiL_vs_pd"   = "Model ψL vs Obs Predawn",
-    "psiS_vs_soil" = "Model ψS vs Obs Soil",
-    "psiX_vs_md"   = "Model ψX vs Obs Midday",
-    "psiX_vs_pd"   = "Model ψX vs Obs Predawn"
+    "psiL_vs_md"   = "model \u03c8l vs obs midday",
+    "psiL_vs_pd"   = "model \u03c8l vs obs predawn",
+    "psiS_vs_soil" = "model \u03c8s vs obs soil",
+    "psiX_vs_md"   = "model \u03c8x vs obs midday",
+    "psiX_vs_pd"   = "model \u03c8x vs obs predawn"
   )
   
   data_subset <- data_subset %>% mutate(pair_label = pair_labels[pair_id])
@@ -183,7 +196,7 @@ create_scatter_psi_plot <- function(target_treatment, plot_title) {
       text_summary = paste0(
         "n = ", n, "\n",
         "r = ", round(pearson_r, 2), "\n",
-        "r² = ", round(pearson_r2, 2), "\n",
+        "r\u00b2 = ", round(pearson_r2, 2), "\n",
         "rmse = ", round(rmse, 2), "\n",
         "bias = ", round(bias, 2), "\n",
         "slope = ", round(slope, 1)
@@ -192,7 +205,6 @@ create_scatter_psi_plot <- function(target_treatment, plot_title) {
   
   # Establish clean isometric square dimensions
   axis_min <- min(c(data_subset$obs_val, data_subset$model_val), na.rm = TRUE) * 1.05
-  axis_max <- max(c(data_subset$obs_val, data_subset$model_val), na.rm = TRUE) * 0.95
   
   ggplot(data_subset, aes(x = obs_val, y = model_val, color = species)) +
     geom_point(alpha = 0.5, size = 1.5) +
@@ -208,23 +220,23 @@ create_scatter_psi_plot <- function(target_treatment, plot_title) {
     ) +
     labs(
       title = plot_title,
-      subtitle = "Dashed line = 1:1 Identity framework | June-September common records",
-      x = expression(Observed ~ Water ~ Potential ~ (MPa)),
-      y = expression(LPJ-GUESS ~ Simulated ~ Water ~ Potential ~ (MPa))
+      subtitle = "dashed line = 1:1 identity framework | june-september common records",
+      x = expression(observed ~ water ~ potential ~ (mpa)),
+      y = expression(lpj-guess ~ simulated ~ water ~ potential ~ (mpa))
     ) +
     base_theme +
     theme(aspect.ratio = 1, strip.text.y = element_text(angle = -90, size = 9))
 }
 
-scatter_control <- create_scatter_psi_plot("control", "Water Potential 1:1 Scatter: Control Cohort")
-scatter_drought <- create_scatter_psi_plot("drought", "Water Potential 1:1 Scatter: Drought Cohort")
+scatter_control <- create_scatter_psi_plot("control", "water potential 1:1 scatter: control")
+scatter_drought <- create_scatter_psi_plot("drought", "water potential 1:1 scatter: drought")
 
-ggsave("Figures/compare_Psi_lpjtwd_hoelstein/scatter_control_5pairs.png", scatter_control, width = 14, height = 15, dpi = 300)
-ggsave("Figures/compare_Psi_lpjtwd_hoelstein/scatter_drought_5pairs.png", scatter_drought, width = 14, height = 15, dpi = 300)
+ggsave("Figures/lpj_guess_hyd_twd/scatter_control_5pairs.png", scatter_control, width = 14, height = 15, dpi = 300)
+ggsave("Figures/lpj_guess_hyd_twd/scatter_drought_5pairs.png", scatter_drought, width = 14, height = 15, dpi = 300)
 
-# ==========================================================================
-# 8. DIFFERENCE PLOTS: BAR SUMMARY (MEAN DIFFERENCE BY PAIR)
-# ==========================================================================
+# ==========================================
+# 8. difference plots: bar summary (mean difference by pair)
+# ==========================================
 diff_summary_psi <- flat_evaluation_pairs %>%
   group_by(species, treatment, pair_id) %>%
   summarise(
@@ -233,7 +245,7 @@ diff_summary_psi <- flat_evaluation_pairs %>%
     .groups = "drop"
   )
 
-write.csv(diff_summary_psi, "Figures/compare_Psi_lpjtwd_hoelstein/difference_statistics_psi.csv", row.names = FALSE)
+write.csv(diff_summary_psi, "Figures/lpj_guess_hyd_twd/difference_statistics_psi.csv", row.names = FALSE)
 
 # Color scale to easily distinguish the 5 pairs (Reds for Midday, Blues for Predawn, Orange for Soil)
 pair_colors <- c(
@@ -251,42 +263,41 @@ plot_diff_summary_psi <- ggplot(diff_summary_psi, aes(x = species, y = mean_diff
   geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
   facet_wrap(~ treatment, ncol = 2) +
   scale_fill_manual(
-    name = "Evaluation Pairs", 
+    name = "evaluation pairs", 
     values = pair_colors,
-    labels = c("Model ψL vs Obs MD", "Model ψL vs Obs PD", "Model ψS vs Obs Soil", "Model ψX vs Obs MD", "Model ψX vs Obs PD")
+    labels = c("model \u03c8l vs obs md", "model \u03c8l vs obs pd", "model \u03c8s vs obs soil", "model \u03c8x vs obs md", "model \u03c8x vs obs pd")
   ) +
   labs(
-    title = "Mean Difference Summary: Simulated - Observed Water Potentials",
-    subtitle = "Positive = Overestimation, Negative = Underestimation | Error bars represent ±1 SE",
-    x = "Species Architecture", y = expression(Mean ~ Difference ~ (MPa))
+    title = "mean difference summary: simulated - observed water potentials",
+    subtitle = "positive = overestimation, negative = underestimation | error bars represent \u00b11 se",
+    x = "species architecture", y = expression(mean ~ difference ~ (mpa))
   ) +
   base_theme + 
   theme(axis.text.x = element_text(angle = 0, size = 11))
 
-ggsave("Figures/compare_Psi_lpjtwd_hoelstein/mean_difference_by_pair.png", plot_diff_summary_psi, width = 12, height = 7, dpi = 300)
+ggsave("Figures/lpj_guess_hyd_twd/mean_difference_by_pair.png", plot_diff_summary_psi, width = 12, height = 7, dpi = 300)
 
-# ==========================================================================
-# 9. DIFFERENCE PLOTS: TIMELINE SERIATION (DAILY LINE FLUCTUATIONS)
-# ==========================================================================
+# ==========================================
+# 9. difference plots: timeline seriation (daily line fluctuations)
+# ==========================================
 create_daily_diff_timeline <- function(target_treatment, plot_title) {
   data_subset <- flat_evaluation_pairs %>% filter(treatment == target_treatment)
   
   ggplot(data_subset, aes(x = date, y = diff, color = pair_id, group = pair_id)) +
-    # Swapped geom_bar for lines and points to track daily trajectories clearly
     geom_line(linewidth = 0.5, alpha = 0.75) +
     geom_point(size = 0.8, alpha = 0.6) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
     facet_wrap(~ species, ncol = 2, scales = "free_y") +
     scale_color_manual(
-      name = "Evaluation Pairs", 
+      name = "evaluation pairs", 
       values = pair_colors,
-      labels = c("Model ψL vs Obs MD", "Model ψL vs Obs PD", "Model ψS vs Obs Soil", "Model ψX vs Obs MD", "Model ψX vs Obs PD")
+      labels = c("model \u03c8l vs obs md", "model \u03c8l vs obs pd", "model \u03c8s vs obs soil", "model \u03c8x vs obs md", "model \u03c8x vs obs pd")
     ) +
     scale_x_date(date_breaks = "2 months", date_labels = "%b %Y") +
     labs(
       title = plot_title,
-      subtitle = "Daily Difference Line Metric (Simulated - Observed) | Positive = Overestimation, Negative = Underestimation",
-      x = "Timeline", y = expression(Daily ~ Delta ~ Psi ~ (MPa))
+      subtitle = "daily difference line metric (simulated - observed) | positive = overestimation, negative = underestimation",
+      x = "timeline", y = expression(daily ~ delta ~ psi ~ (mpa))
     ) +
     base_theme +
     theme(
@@ -295,16 +306,15 @@ create_daily_diff_timeline <- function(target_treatment, plot_title) {
     )
 }
 
-timeline_control_diff <- create_daily_diff_timeline("control", "Daily Evaluation Differences: Control Experiment (Line)")
-timeline_drought_diff <- create_daily_diff_timeline("drought", "Daily Evaluation Differences: Drought Experiment (Line)")
+timeline_control_diff <- create_daily_diff_timeline("control", "daily evaluation differences: control experiment (line)")
+timeline_drought_diff <- create_daily_diff_timeline("drought", "daily evaluation differences: drought experiment (line)")
 
-ggsave("Figures/compare_Psi_lpjtwd_hoelstein/daily_difference_control.png", timeline_control_diff, width = 14, height = 10, dpi = 300)
-ggsave("Figures/compare_Psi_lpjtwd_hoelstein/daily_difference_drought.png", timeline_drought_diff, width = 14, height = 10, dpi = 300)
+ggsave("Figures/lpj_guess_hyd_twd/daily_difference_control.png", timeline_control_diff, width = 14, height = 10, dpi = 300)
+ggsave("Figures/lpj_guess_hyd_twd/daily_difference_drought.png", timeline_drought_diff, width = 14, height = 10, dpi = 300)
 
-
-# ==========================================================================
-# 10. DIFFERENCE PLOTS: BOXPLOTS (SEPARATED BY TREATMENT)
-# ==========================================================================
+# ==========================================
+# 10. difference plots: boxplots (separated by treatment)
+# ==========================================
 create_boxplot_psi_plot <- function(target_treatment, plot_title) {
   data_subset <- flat_evaluation_pairs %>% filter(treatment == target_treatment)
   
@@ -312,39 +322,39 @@ create_boxplot_psi_plot <- function(target_treatment, plot_title) {
     geom_boxplot(alpha = 0.7, outlier.size = 0.8, position = position_dodge(0.85)) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
     scale_fill_manual(
-      name = "Evaluation Pairs", 
+      name = "evaluation pairs", 
       values = pair_colors,
-      labels = c("Model ψL vs Obs MD", "Model ψL vs Obs PD", "Model ψS vs Obs Soil", "Model ψX vs Obs MD", "Model ψX vs Obs PD")
+      labels = c("model \u03c8l vs obs md", "model \u03c8l vs obs pd", "model \u03c8s vs obs soil", "model \u03c8x vs obs md", "model \u03c8x vs obs pd")
     ) +
     labs(
       title = plot_title,
-      subtitle = "Boxplots display medians, interquartile ranges, and associated outliers",
-      x = "Species Architecture", y = expression(Delta ~ Psi ~ (MPa))
+      subtitle = "boxplots display medians, interquartile ranges, and associated outliers",
+      x = "species architecture", y = expression(delta ~ psi ~ (mpa))
     ) +
     base_theme + 
     theme(axis.text.x = element_text(angle = 0, size = 11))
 }
 
-boxplot_control <- create_boxplot_psi_plot("control", "Distribution of Daily Differences: Control Experiment")
-boxplot_drought <- create_boxplot_psi_plot("drought", "Distribution of Daily Differences: Drought Experiment")
+boxplot_control <- create_boxplot_psi_plot("control", "distribution of daily differences: control experiment")
+boxplot_drought <- create_boxplot_psi_plot("drought", "distribution of daily differences: drought experiment")
 
-ggsave("Figures/compare_Psi_lpjtwd_hoelstein/boxplot_differences_psi_control.png", boxplot_control, width = 10, height = 7, dpi = 300)
-ggsave("Figures/compare_Psi_lpjtwd_hoelstein/boxplot_differences_psi_drought.png", boxplot_drought, width = 10, height = 7, dpi = 300)
+ggsave("Figures/lpj_guess_hyd_twd/boxplot_differences_psi_control.png", boxplot_control, width = 10, height = 7, dpi = 300)
+ggsave("Figures/lpj_guess_hyd_twd/boxplot_differences_psi_drought.png", boxplot_drought, width = 10, height = 7, dpi = 300)
 
-# ==========================================================================
-# 11. METADATA STATISTICAL DICTIONARY FILE GENERATION
-# ==========================================================================
-cat("\n=== Logging Metadata Explanations ===\n")
-sink("Figures/compare_Psi_lpjtwd_hoelstein/statistical_variables_explanation.txt")
+# ==========================================
+# 11. metadata statistical dictionary file generation
+# ==========================================
+cat("\n=== logging metadata explanations ===\n")
+sink("Figures/lpj_guess_hyd_twd/statistical_variables_explanation.txt")
 cat("================================================================================\n")
-cat("STATISTICAL VARIABLES EXPLANATION DICTIONARY\n")
-cat("Water Potential Evaluation Matrix: Field Observations vs LPJ-GUESS Simulated\n")
+cat("statistical variables explanation dictionary\n")
+cat("water potential evaluation matrix: field observations vs lpj-guess simulated\n")
 cat("================================================================================\n\n")
-cat("n (Sample Cohort Size): Paired strict chronological date match records.\n")
-cat("pearson_r (Pearson Correlation): Direction and linear strength (-1 to +1).\n")
-cat("pearson_r2 (Coefficient of Determination): Explained variation proportion (0 to 1).\n")
-cat("rmse (Root Mean Square Error): Absolute quadratic fit penalty metric (MPa).\n")
-cat("bias (Mean Directional Bias): Mean delta calculation (Simulated - Observed) (MPa).\n")
-cat("slope (Fitted Linear Slope): Regression slope. Ideal matching target = 1.0.\n")
+cat("n (sample cohort size): paired strict chronological date match records.\n")
+cat("pearson_r (pearson correlation): direction and linear strength (-1 to +1).\n")
+cat("pearson_r2 (coefficient of determination): explained variation proportion (0 to 1).\n")
+cat("rmse (root mean square error): absolute quadratic fit penalty metric (mpa).\n")
+cat("bias (mean directional bias): mean delta calculation (simulated - observed) (mpa).\n")
+cat("slope (fitted linear slope): regression slope. ideal matching target = 1.0.\n")
 sink()
-cat("✓ Statistical dictionary written successfully.\n")
+cat("\u2713 statistical dictionary written successfully.\n")
