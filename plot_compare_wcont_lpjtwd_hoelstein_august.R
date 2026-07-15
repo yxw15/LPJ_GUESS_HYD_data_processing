@@ -1,3 +1,4 @@
+VALIDATION_MONTH <- 8  # August only
 library(dplyr)
 library(tidyr)
 library(purrr)
@@ -9,7 +10,7 @@ library(ggplot2)
 setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD")
 
 # define and create the output directory for figures if it doesn't exist
-output_dir = "Figures/lpj_guess_stem_storage/Wcont"
+output_dir = "Figures/lpj_guess_stem_storage/validation_august/Wcont"
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)
 }
@@ -254,19 +255,19 @@ print(p4)
 ggsave(filename = file.path(output_dir, "plot4_distribution_boxplot.png"), plot = p4, width = 15, height = 8, dpi = 300)
 
 # ==========================================
-# 7. plot 5: distribution of values for months 6-9 only (summer)
+# 7. plot 5: distribution of values for August only (summer)
 # ==========================================
 # Filter down data exclusively to June (6), July (7), August (8), and September (9)
 summer_data = combined_data %>%
-  filter(month(plot_date) %in% c(6, 7, 8, 9))
+  filter(month(plot_date) == VALIDATION_MONTH)
 
 p5 = ggplot(summer_data, aes(x = source_layer, y = value, fill = source_layer)) +
   geom_boxplot(outlier.size = 0.5, alpha = 0.8) +
   facet_grid(treatment ~ species) +
   scale_fill_manual(values = custom_colors) +
   labs(
-    title = "distribution of soil moisture values (months 6-9 only)",
-    subtitle = paste("summer season comparison within window:", min_drought_date, "to", max_drought_date),
+    title = "distribution of soil moisture values (August only)",
+    subtitle = paste("August comparison within window:", min_drought_date, "to", max_drought_date),
     x = "data streams & depths",
     y = "volumetric water content / soil moisture (%)",
     fill = "data streams & depths"

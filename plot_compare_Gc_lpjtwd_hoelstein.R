@@ -10,7 +10,7 @@ library(tidyr)
 setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD")
 
 # create directory if it doesn't exist
-dir.create("Figures/compare_Gc_lpjtwd_hoelstein", recursive = TRUE, showWarnings = FALSE)
+dir.create("Figures/lpj_guess_stem_storage/Gc", recursive = TRUE, showWarnings = FALSE)
 
 # aesthetics (lowercased factor levels to ensure lowercase strip texts)
 species_levels <- c("oak", "beech", "spruce", "pine")
@@ -36,7 +36,7 @@ base_theme <- theme_minimal() +
 # ==========================================================================
 # 2. DATA PREPARATION & FILTER DEFINITION
 # ==========================================================================
-lpj_output_filter <- read.csv("lpj_guess/lpj_guess_twd/lpj_control_drought_Gc_psiL_psiX_psiS_stem_diameter_twd_stem_rwc_climate_filter.csv")
+lpj_output_filter <- read.csv("lpj_guess/lpj_guess_stem_storage/lpj_control_drought_ET_Gc_psi_leaf_psi_soil_psi_xylem_hydraulic_lag_kappy_s_min_mort_mort_cav_mort_greff_mort_min_stem_diameter_stem_rwc_twd_climate_filter.csv")
 sap_flux_gc_filter <- read.csv("SCCII/sap_flux_gc_daytime_Climate_filter.csv")
 
 sap_flux_gc_filter <- sap_flux_gc_filter %>%
@@ -101,8 +101,8 @@ cat("\ndate range:", as.character(start_date), "to", as.character(end_date), "\n
 # 4. DATA PROCESSING: OBSERVED DATA (BOTH METHODS)
 # ==========================================================================
 
-# method 1: simple daily mean
-observed_daily_mean <- observed_data_filtered %>%
+# method 1: simple daytime mean
+observed_daytime_mean <- observed_data_filtered %>%
   group_by(date, species, treatment) %>%
   summarise(G_obs_mean = mean(G_ms, na.rm = TRUE), 
             .groups = "drop")
@@ -126,7 +126,7 @@ create_timeseries_plot <- function(treatment_name, plot_title) {
     filter(treatment == treatment_name) %>%
     mutate(year = year(date))
   
-  obs_daily_subset <- observed_daily_mean %>% 
+  obs_daytime_subset <- observed_daytime_mean %>% 
     filter(treatment == treatment_name) %>%
     mutate(year = year(date))
   
@@ -144,9 +144,9 @@ create_timeseries_plot <- function(treatment_name, plot_title) {
                aes(x = date, y = G_cond_mean, color = species),
                alpha = 1, size = 1.2) +
     
-    # 2. Observed Daily Mean (Blue open triangles, shape = 2)
-    geom_point(data = obs_daily_subset,
-               aes(x = date, y = G_obs_mean, shape = "observed daily mean"),
+    # 2. Observed daytime mean (Blue open triangles, shape = 2)
+    geom_point(data = obs_daytime_subset,
+               aes(x = date, y = G_obs_mean, shape = "observed daytime mean"),
                color = "grey70", alpha = 0.7, size = 1.8, stroke = 1) +
     
     # 3. Observed Top 10% Mean (Red open circles, shape = 1)
@@ -159,8 +159,8 @@ create_timeseries_plot <- function(treatment_name, plot_title) {
     scale_color_manual(name = "lpj-guess simulation", values = species_colors) +
     
     scale_shape_manual(name = "field measurements (sccii)",
-                       values = c("observed daily mean" = 2, "observed top 10%" = 1),
-                       labels = c("observed daily mean" = "daily mean (blue open triangle)", 
+                       values = c("observed daytime mean" = 2, "observed top 10%" = 1),
+                       labels = c("observed daytime mean" = "daytime mean (blue open triangle)", 
                                   "observed top 10%" = "top 10% quantile (red open circle)")) +
     
     scale_x_date(date_breaks = "3 months", date_labels = "%b") +
@@ -185,7 +185,7 @@ create_timeseries_plot_line <- function(treatment_name, plot_title) {
     filter(treatment == treatment_name) %>%
     mutate(year = year(date))
   
-  obs_daily_subset <- observed_daily_mean %>% 
+  obs_daytime_subset <- observed_daytime_mean %>% 
     filter(treatment == treatment_name) %>%
     mutate(year = year(date))
   
@@ -203,15 +203,15 @@ create_timeseries_plot_line <- function(treatment_name, plot_title) {
               aes(x = date, y = G_cond_mean, color = species),
               linetype = "solid", linewidth = 1, alpha = 1) +
     
-    # 2. Observed Daily Mean line (dashed line, matches grey70 color)
-    geom_line(data = obs_daily_subset,
+    # 2. Observed daytime mean line (dashed line, matches grey70 color)
+    geom_line(data = obs_daytime_subset,
               aes(x = date, y = G_obs_mean),
-              color = "grey70", linetype = "dashed", linewidth = 0.8, alpha = 1) +
+              color = "grey20", linetype = "dashed", linewidth = 0.8, alpha = 1) +
     
     # 3. Observed Top 10% line (dotted line, matches dark grey20 color)
-    geom_line(data = obs_top10_subset,
-              aes(x = date, y = G_obs_top10),
-              color = "grey20", linetype = "dotted", linewidth = 0.8, alpha = 1) +
+    # geom_line(data = obs_top10_subset,
+    #           aes(x = date, y = G_obs_top10),
+    #           color = "grey70", linetype = "dotted", linewidth = 0.8, alpha = 1) +
     
     facet_grid(species ~ year, scales = "free") +
     
@@ -243,8 +243,8 @@ plot_drought_ts_line <- create_timeseries_plot_line("drought", "canopy conductan
 # 6. PREPARE DATA FOR SCATTER PLOTS
 # ==========================================================================
 
-# daily mean scatter data
-scatter_data_daily <- observed_daily_mean %>%
+# daytime mean scatter data
+scatter_data_daytime <- observed_daytime_mean %>%
   inner_join(lpj_processed_filtered, by = c("date", "species", "treatment")) %>%
   rename(g_sim = G_cond_mean, g_obs_mean = G_obs_mean)
 
@@ -257,16 +257,24 @@ scatter_data_top10 <- observed_top10 %>%
 # 7. CALCULATE STATISTICS PER SPECIES AND PER TREATMENT
 # ==========================================================================
 
-scatter_stats_daily <- scatter_data_daily %>%
+# Safe wrappers: return NA instead of error when variance is zero
+safe_cor <- function(x, y) {
+  if (sd(x, na.rm = TRUE) == 0 || sd(y, na.rm = TRUE) == 0) NA_real_ else cor(x, y, use = "complete.obs")
+}
+safe_slope <- function(x, y) {
+  if (sd(x, na.rm = TRUE) == 0 || sd(y, na.rm = TRUE) == 0) NA_real_ else coef(lm(y ~ x))[2]
+}
+
+scatter_stats_daytime <- scatter_data_daytime %>%
   group_by(species, treatment) %>%
   summarise(
     n = n(),
-    pearson_r = cor(g_obs_mean, g_sim, use = "complete.obs"),
-    pearson_r2 = cor(g_obs_mean, g_sim, use = "complete.obs")^2,
+    pearson_r = safe_cor(g_obs_mean, g_sim),
+    pearson_r2 = safe_cor(g_obs_mean, g_sim)^2,
     rmse = sqrt(mean((g_sim - g_obs_mean)^2, na.rm = TRUE)),
     nrmse = (sqrt(mean((g_sim - g_obs_mean)^2, na.rm = TRUE)) / mean(g_obs_mean, na.rm = TRUE)) * 100,
     bias = mean(g_sim - g_obs_mean, na.rm = TRUE),
-    slope = coef(lm(g_sim ~ g_obs_mean))[2],
+    slope = safe_slope(g_obs_mean, g_sim),
     .groups = "drop"
   )
 
@@ -274,12 +282,12 @@ scatter_stats_top10 <- scatter_data_top10 %>%
   group_by(species, treatment) %>%
   summarise(
     n = n(),
-    pearson_r = cor(g_obs_mean, g_sim, use = "complete.obs"),
-    pearson_r2 = cor(g_obs_mean, g_sim, use = "complete.obs")^2,
+    pearson_r = safe_cor(g_obs_mean, g_sim),
+    pearson_r2 = safe_cor(g_obs_mean, g_sim)^2,
     rmse = sqrt(mean((g_sim - g_obs_mean)^2, na.rm = TRUE)),
     nrmse = (sqrt(mean((g_sim - g_obs_mean)^2, na.rm = TRUE)) / mean(g_obs_mean, na.rm = TRUE)) * 100,
     bias = mean(g_sim - g_obs_mean, na.rm = TRUE),
-    slope = coef(lm(g_sim ~ g_obs_mean))[2],
+    slope = safe_slope(g_obs_mean, g_sim),
     .groups = "drop"
   )
 
@@ -331,10 +339,10 @@ create_scatter_plot <- function(data, stats, treatment_name, plot_title, max_lim
 }
 
 # create all scatter plots
-scatter_control_daily <- create_scatter_plot(scatter_data_daily, scatter_stats_daily, 
-                                             "control", "scatter plot (daily mean): control treatment")
-scatter_drought_daily <- create_scatter_plot(scatter_data_daily, scatter_stats_daily, 
-                                             "drought", "scatter plot (daily mean): drought treatment")
+scatter_control_daytime <- create_scatter_plot(scatter_data_daytime, scatter_stats_daytime, 
+                                             "control", "scatter plot (daytime mean): control treatment")
+scatter_drought_daytime <- create_scatter_plot(scatter_data_daytime, scatter_stats_daytime, 
+                                             "drought", "scatter plot (daytime mean): drought treatment")
 scatter_control_top10 <- create_scatter_plot(scatter_data_top10, scatter_stats_top10, 
                                              "control", "scatter plot (top 10% quantile): control treatment")
 scatter_drought_top10 <- create_scatter_plot(scatter_data_top10, scatter_stats_top10, 
@@ -344,10 +352,10 @@ scatter_drought_top10 <- create_scatter_plot(scatter_data_top10, scatter_stats_t
 # 9. PREPARE DATA FOR DIFFERENCE CALCULATIONS
 # ==========================================================================
 
-daily_combined <- observed_daily_mean %>%
+daytime_combined <- observed_daytime_mean %>%
   inner_join(lpj_processed_filtered, by = c("date", "species", "treatment")) %>%
   rename(G_sim = G_cond_mean, G_obs = G_obs_mean) %>%
-  mutate(diff = G_sim - G_obs, method = "daily mean")
+  mutate(diff = G_sim - G_obs, method = "daytime mean")
 
 top10_combined <- observed_top10 %>%
   inner_join(lpj_processed_filtered, by = c("date", "species", "treatment")) %>%
@@ -358,14 +366,14 @@ top10_combined <- observed_top10 %>%
 # 10. MEAN DIFFERENCE BAR PLOTS
 # ==========================================================================
 
-diff_daily_summary <- daily_combined %>%
+diff_daytime_summary <- daytime_combined %>%
   group_by(species, treatment) %>%
   summarise(
     mean_diff = mean(diff, na.rm = TRUE),
     se_diff = sd(diff, na.rm = TRUE) / sqrt(n()),
     .groups = "drop"
   ) %>%
-  mutate(method = "daily mean")
+  mutate(method = "daytime mean")
 
 diff_top10_summary <- top10_combined %>%
   group_by(species, treatment) %>%
@@ -376,7 +384,7 @@ diff_top10_summary <- top10_combined %>%
   ) %>%
   mutate(method = "top 10%")
 
-diff_summary <- bind_rows(diff_daily_summary, diff_top10_summary)
+diff_summary <- bind_rows(diff_daytime_summary, diff_top10_summary)
 
 y_max <- max(abs(diff_summary$mean_diff) + diff_summary$se_diff) * 1.1
 y_min <- -y_max
@@ -411,24 +419,24 @@ plot_diff_by_species <- ggplot(diff_summary, aes(x = method, y = mean_diff, fill
 # 11. DAILY DIFFERENCE BAR PLOTS
 # ==========================================================================
 
-plot_daily_diff_daily <- ggplot(daily_combined, aes(x = date, y = diff, fill = treatment)) +
+plot_daytime_diff <- ggplot(daytime_combined, aes(x = date, y = diff, fill = treatment)) +
   geom_bar(stat = "identity", position = position_dodge(0.9), alpha = 0.7) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
   facet_wrap(~ species, ncol = 2, scales = "free_y") +
   scale_fill_manual(name = "treatment", values = c("control" = "#1f77b4", "drought" = "#d62728")) +
   scale_x_date(date_breaks = "2 months", date_labels = "%b %Y") +
-  labs(title = "daily difference (simulated - observed): daily mean method",
+  labs(title = "daytime difference (simulated - observed): daytime mean method",
        subtitle = "positive = overestimation, negative = underestimation",
        x = "timeline", y = "difference (m s-1)") +
   base_theme + theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-plot_daily_diff_top10 <- ggplot(top10_combined, aes(x = date, y = diff, fill = treatment)) +
+plot_daytime_diff_top10 <- ggplot(top10_combined, aes(x = date, y = diff, fill = treatment)) +
   geom_bar(stat = "identity", position = position_dodge(0.9), alpha = 0.7) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
   facet_wrap(~ species, ncol = 2, scales = "free_y") +
   scale_fill_manual(name = "treatment", values = c("control" = "#1f77b4", "drought" = "#d62728")) +
   scale_x_date(date_breaks = "2 months", date_labels = "%b %Y") +
-  labs(title = "daily difference (simulated - observed): top 10% quantile method",
+  labs(title = "daytime difference (simulated - observed): top 10% quantile method",
        subtitle = "positive = overestimation, negative = underestimation",
        x = "timeline", y = "difference (m s-1)") +
   base_theme + theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -437,11 +445,11 @@ plot_daily_diff_top10 <- ggplot(top10_combined, aes(x = date, y = diff, fill = t
 # 12. BOXPLOTS OF DIFFERENCES
 # ==========================================================================
 
-plot_boxplot_daily <- ggplot(daily_combined, aes(x = species, y = diff, fill = treatment)) +
+plot_boxplot_daytime <- ggplot(daytime_combined, aes(x = species, y = diff, fill = treatment)) +
   geom_boxplot(alpha = 0.7, outlier.size = 1) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
   scale_fill_manual(name = "treatment", values = c("control" = "#1f77b4", "drought" = "#d62728")) +
-  labs(title = "distribution of daily differences: daily mean method",
+  labs(title = "distribution of daytime differences: daytime mean method",
        subtitle = "boxplot shows median, quartiles, and outliers",
        x = "species", y = "difference (m s-1)") +
   base_theme + theme(axis.text.x = element_text(angle = 0, size = 11))
@@ -450,7 +458,7 @@ plot_boxplot_top10 <- ggplot(top10_combined, aes(x = species, y = diff, fill = t
   geom_boxplot(alpha = 0.7, outlier.size = 1) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
   scale_fill_manual(name = "treatment", values = c("control" = "#1f77b4", "drought" = "#d62728")) +
-  labs(title = "distribution of daily differences: top 10% quantile method",
+  labs(title = "distribution of daytime differences: top 10% quantile method",
        subtitle = "boxplot shows median, quartiles, and outliers",
        x = "species", y = "difference (m s-1)") +
   base_theme + theme(axis.text.x = element_text(angle = 0, size = 11))
@@ -466,18 +474,18 @@ print(plot_control_ts_line)
 print(plot_drought_ts_line)
 
 # scatter plots
-print(scatter_control_daily)
-print(scatter_drought_daily)
+print(scatter_control_daytime)
+print(scatter_drought_daytime)
 print(scatter_control_top10)
 print(scatter_drought_top10)
 
 # difference plots
 print(plot_diff_summary)
 print(plot_diff_by_species)
-print(plot_daily_diff_daily)
-print(plot_daily_diff_top10)
+print(plot_daytime_diff)
+print(plot_daytime_diff_top10)
 
-print(plot_boxplot_daily)
+print(plot_boxplot_daytime)
 print(plot_boxplot_top10)
 
 # ==========================================================================
@@ -485,34 +493,34 @@ print(plot_boxplot_top10)
 # ==========================================================================
 
 # time series (points scatter)
-ggsave("Figures/lpj_guess_hyd_twd/timeseries_control.png", plot_control_ts, width = 16, height = 11, dpi = 300)
-ggsave("Figures/lpj_guess_hyd_twd/timeseries_drought.png", plot_drought_ts, width = 16, height = 11, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/timeseries_control.png", plot_control_ts, width = 16, height = 11, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/timeseries_drought.png", plot_drought_ts, width = 16, height = 11, dpi = 300)
 
 # time series (lines tracking)
-ggsave("Figures/lpj_guess_hyd_twd/timeseries_control_lines.png", plot_control_ts_line, width = 16, height = 11, dpi = 300)
-ggsave("Figures/lpj_guess_hyd_twd/timeseries_drought_lines.png", plot_drought_ts_line, width = 16, height = 11, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/timeseries_control_lines.png", plot_control_ts_line, width = 16, height = 11, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/timeseries_drought_lines.png", plot_drought_ts_line, width = 16, height = 11, dpi = 300)
 
 # scatter plots
-ggsave("Figures/lpj_guess_hyd_twd/scatter_control_daily_mean.png", scatter_control_daily, width = 11, height = 9, dpi = 300)
-ggsave("Figures/lpj_guess_hyd_twd/scatter_drought_daily_mean.png", scatter_drought_daily, width = 11, height = 9, dpi = 300)
-ggsave("Figures/lpj_guess_hyd_twd/scatter_control_top10.png", scatter_control_top10, width = 11, height = 9, dpi = 300)
-ggsave("Figures/lpj_guess_hyd_twd/scatter_drought_top10.png", scatter_drought_top10, width = 11, height = 9, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/scatter_control_daytime_mean.png", scatter_control_daytime, width = 11, height = 9, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/scatter_drought_daytime_mean.png", scatter_drought_daytime, width = 11, height = 9, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/scatter_control_top10.png", scatter_control_top10, width = 11, height = 9, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/scatter_drought_top10.png", scatter_drought_top10, width = 11, height = 9, dpi = 300)
 
 # difference plots
-ggsave("Figures/lpj_guess_hyd_twd/mean_difference_by_method.png", plot_diff_summary, width = 10, height = 8, dpi = 300)
-ggsave("Figures/lpj_guess_hyd_twd/mean_difference_by_species.png", plot_diff_by_species, width = 10, height = 8, dpi = 300)
-ggsave("Figures/lpj_guess_hyd_twd/daily_difference_daily_mean.png", plot_daily_diff_daily, width = 14, height = 10, dpi = 300)
-ggsave("Figures/lpj_guess_hyd_twd/daily_difference_top10.png", plot_daily_diff_top10, width = 14, height = 10, dpi = 300)
-ggsave("Figures/lpj_guess_hyd_twd/boxplot_differences_daily_mean.png", plot_boxplot_daily, width = 10, height = 8, dpi = 300)
-ggsave("Figures/lpj_guess_hyd_twd/boxplot_differences_top10.png", plot_boxplot_top10, width = 10, height = 8, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/mean_difference_by_method.png", plot_diff_summary, width = 10, height = 8, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/mean_difference_by_species.png", plot_diff_by_species, width = 10, height = 8, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/daytime_difference_daytime_mean.png", plot_daytime_diff, width = 14, height = 10, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/daytime_difference_top10.png", plot_daytime_diff_top10, width = 14, height = 10, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/boxplot_differences_daytime_mean.png", plot_boxplot_daytime, width = 10, height = 8, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/Gc/boxplot_differences_top10.png", plot_boxplot_top10, width = 10, height = 8, dpi = 300)
 
 # ==========================================================================
 # 15. SAVE STATISTICS
 # ==========================================================================
 
-write.csv(scatter_stats_daily, "Figures/lpj_guess_hyd_twd/scatter_statistics_daily_mean.csv", row.names = FALSE)
-write.csv(scatter_stats_top10, "Figures/lpj_guess_hyd_twd/scatter_statistics_top10.csv", row.names = FALSE)
-write.csv(diff_summary, "Figures/lpj_guess_hyd_twd/difference_statistics.csv", row.names = FALSE)
-write.csv(daily_combined, "Figures/lpj_guess_hyd_twd/daily_differences_daily_mean.csv", row.names = FALSE)
-write.csv(top10_combined, "Figures/lpj_guess_hyd_twd/daily_differences_top10.csv", row.names = FALSE)
+write.csv(scatter_stats_daytime, "Figures/lpj_guess_stem_storage/Gc/scatter_statistics_daytime_mean.csv", row.names = FALSE)
+write.csv(scatter_stats_top10, "Figures/lpj_guess_stem_storage/Gc/scatter_statistics_top10.csv", row.names = FALSE)
+write.csv(diff_summary, "Figures/lpj_guess_stem_storage/Gc/difference_statistics.csv", row.names = FALSE)
+write.csv(daytime_combined, "Figures/lpj_guess_stem_storage/Gc/daytime_differences_daytime_mean.csv", row.names = FALSE)
+write.csv(top10_combined, "Figures/lpj_guess_stem_storage/Gc/daytime_differences_top10.csv", row.names = FALSE)
 

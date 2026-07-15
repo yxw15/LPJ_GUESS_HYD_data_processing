@@ -29,14 +29,14 @@ base_theme <- theme_minimal() +
     panel.grid.minor  = element_blank()
   )
 
-dir.create("Figures/lpj_guess_hyd_twd", recursive = TRUE, showWarnings = FALSE)
+dir.create("Figures/lpj_guess_stem_storage/PSI", recursive = TRUE, showWarnings = FALSE)
 
 # ==========================================================================
 # 2. raw data ingestion & standardization (all unified to mpa)
 # ==========================================================================
 
 # LPJ Model Output (Already in MPa)
-lpj_raw <- read.csv("lpj_guess/lpj_guess_twd/lpj_control_drought_Gc_psiL_psiX_psiS_stem_diameter_twd_stem_rwc.csv") %>%
+lpj_raw <- read.csv("lpj_guess/lpj_guess_stem_storage/lpj_control_drought_ET_Gc_psi_leaf_psi_soil_psi_xylem_hydraulic_lag_kappy_s_min_mort_mort_cav_mort_greff_mort_min_stem_diameter_stem_rwc_twd.csv") %>%
   mutate(date = as.Date(date), month = month(date)) %>%
   filter(month >= 6 & month <= 9) %>%
   filter(!is.na(psi_leaf), !is.na(psi_xylem), !is.na(psi_soil), !is.na(species), !is.na(treatment)) %>%
@@ -128,7 +128,7 @@ for (t in treatments) {
     base_theme
   
   # Save with a dynamic filename
-  ggsave(paste0("Figures/lpj_guess_hyd_twd/water_potential_", t, ".png"), 
+  ggsave(paste0("Figures/lpj_guess_stem_storage/PSI/water_potential_", t, ".png"), 
          plot_t, width = 16, height = 5, dpi = 300) # Adjusted height since we removed a facet row
 }
 
@@ -157,12 +157,16 @@ flat_evaluation_pairs <- bind_rows(
 # ==========================================
 # 6. calculate scatter statistics per species, treatment, and pair
 # ==========================================
+safe_cor <- function(x, y) {
+  if (sd(x, na.rm = TRUE) == 0 || sd(y, na.rm = TRUE) == 0) NA_real_ else cor(x, y, use = "complete.obs")
+}
+
 scatter_stats_psi <- flat_evaluation_pairs %>%
   group_by(species, treatment, pair_id) %>%
   summarise(
     n = n(),
-    pearson_r = cor(obs_val, model_val, use = "complete.obs"),
-    pearson_r2 = cor(obs_val, model_val, use = "complete.obs")^2,
+    pearson_r = safe_cor(obs_val, model_val),
+    pearson_r2 = safe_cor(obs_val, model_val)^2,
     rmse = sqrt(mean((model_val - obs_val)^2, na.rm = TRUE)),
     nrmse = (sqrt(mean((model_val - obs_val)^2, na.rm = TRUE)) / mean(obs_val, na.rm = TRUE)) * 100,
     bias = mean(model_val - obs_val, na.rm = TRUE),
@@ -170,7 +174,7 @@ scatter_stats_psi <- flat_evaluation_pairs %>%
     .groups = "drop"
   )
 
-write.csv(scatter_stats_psi, "Figures/lpj_guess_hyd_twd/scatter_statistics_psi_5pairs.csv", row.names = FALSE)
+write.csv(scatter_stats_psi, "Figures/lpj_guess_stem_storage/PSI/scatter_statistics_psi_5pairs.csv", row.names = FALSE)
 
 # ==========================================
 # 7. generate annotated 1:1 scatter plots 
@@ -231,8 +235,8 @@ create_scatter_psi_plot <- function(target_treatment, plot_title) {
 scatter_control <- create_scatter_psi_plot("control", "water potential 1:1 scatter: control")
 scatter_drought <- create_scatter_psi_plot("drought", "water potential 1:1 scatter: drought")
 
-ggsave("Figures/lpj_guess_hyd_twd/scatter_control_5pairs.png", scatter_control, width = 14, height = 15, dpi = 300)
-ggsave("Figures/lpj_guess_hyd_twd/scatter_drought_5pairs.png", scatter_drought, width = 14, height = 15, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/PSI/scatter_control_5pairs.png", scatter_control, width = 14, height = 15, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/PSI/scatter_drought_5pairs.png", scatter_drought, width = 14, height = 15, dpi = 300)
 
 # ==========================================
 # 8. difference plots: bar summary (mean difference by pair)
@@ -245,7 +249,7 @@ diff_summary_psi <- flat_evaluation_pairs %>%
     .groups = "drop"
   )
 
-write.csv(diff_summary_psi, "Figures/lpj_guess_hyd_twd/difference_statistics_psi.csv", row.names = FALSE)
+write.csv(diff_summary_psi, "Figures/lpj_guess_stem_storage/PSI/difference_statistics_psi.csv", row.names = FALSE)
 
 # Color scale to easily distinguish the 5 pairs (Reds for Midday, Blues for Predawn, Orange for Soil)
 pair_colors <- c(
@@ -275,7 +279,7 @@ plot_diff_summary_psi <- ggplot(diff_summary_psi, aes(x = species, y = mean_diff
   base_theme + 
   theme(axis.text.x = element_text(angle = 0, size = 11))
 
-ggsave("Figures/lpj_guess_hyd_twd/mean_difference_by_pair.png", plot_diff_summary_psi, width = 12, height = 7, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/PSI/mean_difference_by_pair.png", plot_diff_summary_psi, width = 12, height = 7, dpi = 300)
 
 # ==========================================
 # 9. difference plots: timeline seriation (daily line fluctuations)
@@ -309,8 +313,8 @@ create_daily_diff_timeline <- function(target_treatment, plot_title) {
 timeline_control_diff <- create_daily_diff_timeline("control", "daily evaluation differences: control experiment (line)")
 timeline_drought_diff <- create_daily_diff_timeline("drought", "daily evaluation differences: drought experiment (line)")
 
-ggsave("Figures/lpj_guess_hyd_twd/daily_difference_control.png", timeline_control_diff, width = 14, height = 10, dpi = 300)
-ggsave("Figures/lpj_guess_hyd_twd/daily_difference_drought.png", timeline_drought_diff, width = 14, height = 10, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/PSI/daily_difference_control.png", timeline_control_diff, width = 14, height = 10, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/PSI/daily_difference_drought.png", timeline_drought_diff, width = 14, height = 10, dpi = 300)
 
 # ==========================================
 # 10. difference plots: boxplots (separated by treatment)
@@ -338,14 +342,90 @@ create_boxplot_psi_plot <- function(target_treatment, plot_title) {
 boxplot_control <- create_boxplot_psi_plot("control", "distribution of daily differences: control experiment")
 boxplot_drought <- create_boxplot_psi_plot("drought", "distribution of daily differences: drought experiment")
 
-ggsave("Figures/lpj_guess_hyd_twd/boxplot_differences_psi_control.png", boxplot_control, width = 10, height = 7, dpi = 300)
-ggsave("Figures/lpj_guess_hyd_twd/boxplot_differences_psi_drought.png", boxplot_drought, width = 10, height = 7, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/PSI/boxplot_differences_psi_control.png", boxplot_control, width = 10, height = 7, dpi = 300)
+ggsave("Figures/lpj_guess_stem_storage/PSI/boxplot_differences_psi_drought.png", boxplot_drought, width = 10, height = 7, dpi = 300)
 
 # ==========================================
 # 11. metadata statistical dictionary file generation
 # ==========================================
+# ==========================================
+# 12. scatter: simulated psiL vs observed midday psiL (dedicated)
+# ==========================================
+
+# Filter to only psiL vs midday pair
+psiL_md_data <- flat_evaluation_pairs %>%
+  filter(pair_id == "psiL_vs_md")
+
+psiL_md_stats <- scatter_stats_psi %>%
+  filter(pair_id == "psiL_vs_md") %>%
+  mutate(
+    text_label = paste0(
+      "n = ", n, "\n",
+      "r = ", round(pearson_r, 2), "\n",
+      "R² = ", round(pearson_r2, 2), "\n",
+      "RMSE = ", round(rmse, 2), "\n",
+      "slope = ", round(slope, 2)
+    )
+  )
+
+# Determine symmetric axis limits
+psiL_axis_min <- min(c(psiL_md_data$obs_val, psiL_md_data$model_val), na.rm = TRUE) * 1.05
+
+# --- Version A: faceted grid (rows = treatment, cols = species) ---
+p_psiL_md_scatter <- ggplot(psiL_md_data, aes(x = obs_val, y = model_val, color = species)) +
+  geom_point(alpha = 0.5, size = 2) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, alpha = 0.15, linewidth = 0.7) +
+  geom_text(
+    data = psiL_md_stats,
+    aes(x = -Inf, y = Inf, label = text_label),
+    hjust = -0.05, vjust = 1.1, size = 3, color = "black", inherit.aes = FALSE
+  ) +
+  facet_grid(treatment ~ species) +
+  scale_color_manual(values = species_colors) +
+  coord_fixed(ratio = 1, xlim = c(psiL_axis_min, 0), ylim = c(psiL_axis_min, 0)) +
+  labs(
+    title = "simulated vs observed midday leaf water potential (ψL)",
+    subtitle = "dashed = 1:1 line | solid = linear regression | june–september common records",
+    x = expression(observed~midday~Psi[leaf]~(MPa)),
+    y = expression(simulated~Psi[leaf]~(MPa))
+  ) +
+  base_theme +
+  theme(aspect.ratio = 1)
+
+print(p_psiL_md_scatter)
+ggsave("Figures/lpj_guess_stem_storage/PSI/scatter_psiL_vs_midday.png", p_psiL_md_scatter, width = 12, height = 8, dpi = 300)
+
+# --- Version B: all species on one panel per treatment ---
+p_psiL_md_single <- ggplot(psiL_md_data, aes(x = obs_val, y = model_val, color = species)) +
+  geom_point(alpha = 0.5, size = 2) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, alpha = 0.15, linewidth = 0.7) +
+  geom_text(
+    data = psiL_md_stats,
+    aes(x = -Inf, y = Inf, label = text_label),
+    hjust = -0.05, vjust = 1.1, size = 2.8, color = "black", inherit.aes = FALSE
+  ) +
+  facet_wrap(vars(treatment, species), ncol = 4) +
+  scale_color_manual(values = species_colors) +
+  coord_fixed(ratio = 1, xlim = c(psiL_axis_min, 0), ylim = c(psiL_axis_min, 0)) +
+  labs(
+    title = "simulated vs observed midday leaf water potential (ψL)",
+    subtitle = "dashed = 1:1 line | solid = linear regression | june–september common records",
+    x = expression(observed~midday~Psi[leaf]~(MPa)),
+    y = expression(simulated~Psi[leaf]~(MPa))
+  ) +
+  base_theme +
+  theme(aspect.ratio = 1, legend.position = "none")
+
+print(p_psiL_md_single)
+ggsave("Figures/lpj_guess_stem_storage/PSI/scatter_psiL_vs_midday_single.png", p_psiL_md_single, width = 14, height = 8, dpi = 300)
+
+# ==========================================
+# 13. metadata statistical dictionary file generation
+# ==========================================
 cat("\n=== logging metadata explanations ===\n")
-sink("Figures/lpj_guess_hyd_twd/statistical_variables_explanation.txt")
+sink("Figures/lpj_guess_stem_storage/PSI/statistical_variables_explanation.txt")
 cat("================================================================================\n")
 cat("statistical variables explanation dictionary\n")
 cat("water potential evaluation matrix: field observations vs lpj-guess simulated\n")
@@ -358,3 +438,4 @@ cat("bias (mean directional bias): mean delta calculation (simulated - observed)
 cat("slope (fitted linear slope): regression slope. ideal matching target = 1.0.\n")
 sink()
 cat("\u2713 statistical dictionary written successfully.\n")
+

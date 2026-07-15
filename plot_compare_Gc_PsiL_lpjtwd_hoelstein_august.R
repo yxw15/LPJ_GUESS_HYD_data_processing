@@ -1,3 +1,4 @@
+VALIDATION_MONTH <- 8  # August only
 # ==============================================================================
 # 1. SETUP & DATA LOADING
 # ==============================================================================
@@ -68,7 +69,7 @@ obs_leaf_raw <- bind_rows(
   read.csv("SCCII/psiL_hoelstein_control.csv") %>% mutate(treatment = "control")
 ) %>%
   mutate(date = as.Date(date), month = month(date)) %>%
-  filter(month >= 6 & month <= 9) %>%
+  filter(month == VALIDATION_MONTH) %>%
   rename(species = if_else("species_name" %in% names(.), "species_name", "species")) %>%
   mutate(species = factor(species, levels = species_order))
 
@@ -114,7 +115,7 @@ obs_combined <- obs_gc %>%
 
 # Filter observations to target seasonal limits (Full Series Context)
 obs_filtered_climate <- obs_combined %>%
-  filter(date %in% climate_filter_dates, month(date) %in% c(6, 7, 8, 9))
+  filter(date %in% climate_filter_dates, month(date) == VALIDATION_MONTH)
 
 # Combine datasets for Common-Time bounds with source column
 combined_data_lpj_obs <- mod_proc %>%
@@ -183,7 +184,7 @@ print(point_counts)
 
 # 2. Full Simulated Series Standardization (true min-max per species × treatment)
 data_full_model_std <- mod_proc %>%
-  filter(date %in% climate_filter_dates, month(date) %in% c(6, 7, 8, 9)) %>%
+  filter(date %in% climate_filter_dates, month(date) == VALIDATION_MONTH) %>%
   group_by(species, treatment) %>%
   mutate(
     gc_min = min(gc, na.rm = TRUE),
@@ -194,7 +195,7 @@ data_full_model_std <- mod_proc %>%
 
 # 3. Full Observed Series: all summer obs (not restricted to LPJ dates), long format
 data_obs_full_std <- obs_combined %>%
-  filter(month(date) %in% c(6, 7, 8, 9))
+  filter(month(date) == VALIDATION_MONTH)
 
 data_obs_full_std <- bind_rows(
   data_obs_full_std %>%
@@ -216,7 +217,7 @@ data_obs_full_std <- bind_rows(
 
 # 4. Full Monthly Simulated Series Standardization
 data_full_model_monthly_raw <- mod_proc %>%
-  filter(date %in% climate_filter_dates, month(date) %in% c(6, 7, 8, 9)) %>%
+  filter(date %in% climate_filter_dates, month(date) == VALIDATION_MONTH) %>%
   mutate(
     year  = year(date),
     month = month(date)
@@ -251,7 +252,7 @@ p_gc_psi_common <- ggplot(combined_data_lpj_obs) +
   ylim(0, 12) +
   labs(
     title = "canopy conductance vs leaf water potential (common time)",
-    subtitle = tolower(paste0(climate_txt, " | june–september\nmidday = open triangle | predawn = black + | lpj = colored")),
+    subtitle = tolower(paste0(climate_txt, " | August only\nmidday = open triangle | predawn = black + | lpj = colored")),
     x = expression(Psi["leaf"]~"(MPa)"),
     y = expression(G[c]~(m~s^{-1})),
     color = ""
@@ -869,7 +870,7 @@ print(p_slopes_bar)
 # 10. PRINT & EXPORT TARGET DIRECTORY
 # ==============================================================================
 
-out_dir <- "Figures/lpj_guess_stem_storage/Gc_PsiL"
+out_dir <- "Figures/lpj_guess_stem_storage/validation_august/Gc_PsiL"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 ggsave(file.path(out_dir, "compare_Gc_vs_PsiL_common_time.png"), p_gc_psi_common, width = 13, height = 9, dpi = 300)
