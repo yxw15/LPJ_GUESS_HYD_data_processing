@@ -36,8 +36,8 @@ base_theme <- theme_minimal() +
 # ==========================================================================
 # 2. DATA PREPARATION
 # ==========================================================================
-lpj_raw_twd <- read.csv("lpj_guess/lpj_guess_stem_storage/lpj_control_drought_ET_Gc_psi_leaf_psi_soil_psi_xylem_hydraulic_lag_kappy_s_min_mort_mort_cav_mort_greff_mort_min_stem_diameter_stem_rwc_twd.csv") %>%
-  mutate(date = as.Date(date), species = factor(tolower(species), levels = species_levels), twd_model = twd * 1e6) %>%
+lpj_raw_twd <- read.csv("lpj_guess/lpj_guess_stem_storage/lpj_control_drought_ET_plant_ET_total_Gc_psi_leaf_psi_soil_psi_xylem_hydraulic_lag_kappy_s_min_mort_mort_cav_mort_greff_mort_min_stem_diameter_stem_rwc_twd.csv") %>%
+  mutate(date = as.Date(date), species = factor(tolower(species), levels = species_levels), twd_model = twd) %>%
   filter(!is.na(species)) %>% select(date, species, treatment, twd_model)
 
 dendro_obs <- list.files(path = "SCCII/point_dendro", pattern = "^Point_dendrometers_.*_archive\\.txt$", full.names = TRUE) %>%

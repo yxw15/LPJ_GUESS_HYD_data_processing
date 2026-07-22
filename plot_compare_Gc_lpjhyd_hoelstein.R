@@ -6,6 +6,7 @@ library(ggplot2)
 library(lubridate)
 library(scales)
 library(tidyr)
+library(patchwork)
 
 setwd("/dss/dssfs02/lwp-dss-0001/pr48va/pr48va-dss-0000/yixuan/LPJ_GUESS_HYD")
 
@@ -33,7 +34,7 @@ base_theme <- theme_minimal() +
 # ==========================================================================
 # 2. DATA PREPARATION & FILTER DEFINITION
 # ==========================================================================
-lpj_output_filter <- read.csv("lpj_guess/lpj_guess_twd/lpj_control_drought_Gc_psiL_psiX_psiS_stem_diameter_twd_stem_rwc_climate_filter.csv")
+lpj_output_filter <- read.csv("lpj_guess/lpj_guess_stem_storage/lpj_control_drought_ET_plant_ET_total_Gc_psi_leaf_psi_soil_psi_xylem_hydraulic_lag_kappy_s_min_mort_mort_cav_mort_greff_mort_min_stem_diameter_stem_rwc_twd_climate_filter.csv")
 sap_flux_gc_filter <- read.csv("SCCII/sap_daily_filter.csv")
 
 sap_flux_gc_filter <- sap_flux_gc_filter %>%
@@ -50,7 +51,6 @@ sap_flux_gc_filter <- sap_flux_gc_filter %>%
 observed_data <- sap_flux_gc_filter %>%
   mutate(date = as.Date(date),
          species = tolower(species)) %>%
-  filter(date >= as.Date("2023-01-01")) %>%
   filter(!is.na(G_ms)) %>%
   filter(!is.na(species)) %>%
   filter(!is.na(treatment)) %>%
@@ -61,7 +61,6 @@ observed_data <- sap_flux_gc_filter %>%
 lpj_processed <- lpj_output_filter %>%
   mutate(date = as.Date(date),
          species = tolower(species)) %>%
-  filter(date >= as.Date("2023-01-01")) %>%
   filter(!is.na(Gc)) %>%
   filter(!is.na(species)) %>%
   filter(!is.na(treatment)) %>%
@@ -206,9 +205,9 @@ create_timeseries_plot_line <- function(treatment_name, plot_title) {
               color = "grey70", linetype = "dashed", linewidth = 0.8, alpha = 1) +
     
     # 3. Observed Top 10% line (dotted line, matches dark grey20 color)
-    geom_line(data = obs_top10_subset,
-              aes(x = date, y = G_obs_top10),
-              color = "grey20", linetype = "dotted", linewidth = 0.8, alpha = 1) +
+    # geom_line(data = obs_top10_subset,
+    #           aes(x = date, y = G_obs_top10),
+    #           color = "grey20", linetype = "dotted", linewidth = 0.8, alpha = 1) +
     
     facet_grid(species ~ year, scales = "free") +
     

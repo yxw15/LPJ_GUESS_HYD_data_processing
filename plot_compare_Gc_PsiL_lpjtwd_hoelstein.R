@@ -50,7 +50,7 @@ base_theme <- theme_minimal() +
 # 3. DATA INGESTION & FORMATTING
 # ==============================================================================
 
-lpj_output_filter <- read.csv("lpj_guess/lpj_guess_stem_storage/lpj_control_drought_ET_Gc_psi_leaf_psi_soil_psi_xylem_hydraulic_lag_kappy_s_min_mort_mort_cav_mort_greff_mort_min_stem_diameter_stem_rwc_twd_climate_filter.csv") %>%
+lpj_output_filter <- read.csv("lpj_guess/lpj_guess_stem_storage/lpj_control_drought_ET_plant_ET_total_Gc_psi_leaf_psi_soil_psi_xylem_hydraulic_lag_kappy_s_min_mort_mort_cav_mort_greff_mort_min_stem_diameter_stem_rwc_twd_climate_filter.csv") %>%
   mutate(date = as.Date(date))
 
 sap_flux_gc_filter <- read.csv("SCCII/sap_daily_filter.csv") %>%
@@ -355,6 +355,61 @@ p_gc_psi_common_single <- ggplot(combined_data_lpj_obs) +
 
 print(p_gc_psi_common_single)
 
+## Single Four panels: : Absolute Values (Common Time)
+# Observations - midday
+obs_md <- combined_data_lpj_obs %>%
+  select(treatment, species,
+         gc = gc_obs,
+         psi = psiL_md) %>%
+  mutate(source = "Observation",
+         type = "Midday")
+
+# Observations - predawn
+obs_pd <- combined_data_lpj_obs %>%
+  select(treatment, species,
+         gc = gc_obs,
+         psi = psiL_pd) %>%
+  mutate(source = "Observation",
+         type = "Predawn")
+
+# Simulation
+sim_dat <- combined_data_lpj_obs %>%
+  select(treatment, species,
+         gc,
+         psi = psiL) %>%
+  mutate(source = "Simulation",
+         type = "Simulation")
+
+plot_dat <- bind_rows(sim_dat, obs_md, obs_pd) %>%
+  mutate(
+    source = factor(source,
+                    levels = c("Simulation", "Observation"))
+  )
+
+p_gc_psi_common_single_four <- ggplot(plot_dat,
+       aes(x = psi, y = gc,
+           color = species,
+           shape = type)) +
+  geom_point(size = pt_size, alpha = 0.7, na.rm = TRUE) +
+  facet_grid(source ~ treatment) +
+  scale_shape_manual(
+    values = c(
+      "Midday" = 15,       # solid sqaure
+      "Predawn" = 2,      # open triangle
+      "Simulation" = 16   # solid circle
+    )
+  ) +
+  scale_color_manual(values = cb_palette) +
+  ylim(0, 12) +
+  labs(
+    shape = "",
+    color = "Species",
+    x = expression(Psi["leaf"]~"(MPa)"),
+    y = expression(G[c]~(m~s^{-1}))
+  ) +
+  base_theme
+print(p_gc_psi_common_single_four)
+
 # Single Panel 2: Standardized Values (Common Time)
 p_gc_rel_common_single <- ggplot() +
   geom_point(
@@ -382,6 +437,69 @@ p_gc_rel_common_single <- ggplot() +
   ) + base_theme
 
 print(p_gc_rel_common_single)
+
+# Single four panels: Standardized Values (Common Time)
+plot_dat <- combined_std_lpj_obs %>%
+  mutate(
+    source = case_when(
+      source == "sim" ~ "Simulation",
+      source == "obs" ~ "Observation"
+    ),
+    shape_type = case_when(
+      source == "Simulation"  ~ "Simulation",
+      psiL_label == "midday"  ~ "Midday",
+      psiL_label == "predawn" ~ "Predawn"
+    ),
+    source = factor(
+      source,
+      levels = c("Simulation", "Observation")
+    )
+  )
+
+p_gc_rel_common_single_four <- ggplot(
+  plot_dat,
+  aes(
+    x = psiL,
+    y = gc_rel,
+    color = species,
+    shape = shape_type
+  )
+) +
+  geom_point(
+    alpha = 0.7,
+    size = pt_size,
+    na.rm = TRUE
+  ) +
+  facet_grid(source ~ treatment) +
+  scale_color_manual(values = cb_palette) +
+  scale_shape_manual(
+    name = "",
+    values = c(
+      "Midday" = 15,      # solid square
+      "Predawn" = 2,      # open triangle
+      "Simulation" = 16   # solid circle
+    )
+  ) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    breaks = seq(0, 1, 0.2)
+  ) +
+  labs(
+    title = "standardized canopy conductance vs leaf water potential (common time)",
+    subtitle = tolower(
+      paste0(
+        climate_txt,
+        " (true min-max per species × treatment × source × psiL_label)\n",
+        "midday = ■ | predawn = △ | simulation = ●"
+      )
+    ),
+    x = expression(Psi["leaf"] ~ "(MPa)"),
+    y = expression(G[c] / G[cmax]),
+    color = "species"
+  ) +
+  base_theme
+
+print(p_gc_rel_common_single_four)
 
 # ==============================================================================
 # 7b. SINGLE PANEL DESIGNS — FULL TIME (Monthly Mean & Daily)
@@ -432,6 +550,80 @@ p_gc_rel_full_single_monthly_mean <- ggplot() +
   ) + base_theme
 print(p_gc_rel_full_single_monthly_mean)
 
+# Single four panels: Standardized Values (Full Monthly Mean)
+# Observation data
+obs_md <- obs_filtered_climate %>%
+  mutate(
+    source = "Observation",
+    shape_type = "Midday",
+    psi = psiL_md,
+    gc_plot = gc_obs
+  ) %>%
+  select(treatment, species, source, shape_type, psi, gc_plot)
+
+obs_pd <- obs_filtered_climate %>%
+  mutate(
+    source = "Observation",
+    shape_type = "Predawn",
+    psi = psiL_pd,
+    gc_plot = gc_obs
+  ) %>%
+  select(treatment, species, source, shape_type, psi, gc_plot)
+
+# Simulation data
+sim_dat <- mod_proc_monthly %>%
+  mutate(
+    source = "Simulation",
+    shape_type = "Simulation",
+    psi = psiL,
+    gc_plot = gc
+  ) %>%
+  select(treatment, species, source, shape_type, psi, gc_plot)
+
+# Combined dataframe
+plot_dat <- bind_rows(sim_dat, obs_md, obs_pd) %>%
+  mutate(
+    source = factor(source,
+                    levels = c("Simulation", "Observation")),
+    treatment = factor(treatment,
+                       levels = c("control", "drought"))
+  )
+
+p_gc_psi_full_single_monthly_mean_four <- ggplot(
+  plot_dat,
+  aes(x = psi,
+      y = gc_plot,
+      color = species,
+      shape = shape_type)
+) +
+  geom_point(
+    alpha = 0.7,
+    size = pt_size,
+    na.rm = TRUE
+  ) +
+  facet_grid(source ~ treatment) +
+  scale_color_manual(values = cb_palette) +
+  scale_shape_manual(
+    name = "",
+    values = c(
+      "Midday" = 15,      # solid square
+      "Predawn" = 2,      # open triangle
+      "Simulation" = 16   # solid circle
+    )
+  ) +
+  coord_cartesian(ylim = c(0, 12)) +
+  labs(
+    title = "canopy conductance vs leaf water potential (full monthly mean)",
+    subtitle = "midday = ■ | predawn = △ | lpj monthly mean = ●",
+    x = expression(Psi["leaf"] ~ "(MPa)"),
+    y = expression(G[c] ~ (m~s^{-1})),
+    color = "species"
+  ) +
+  base_theme
+
+print(p_gc_psi_full_single_monthly_mean_four)
+
+
 # Single Panel 5: Absolute Values (Full Daily Range)
 p_gc_psi_full_single_daily <- ggplot() +
   geom_point(data = obs_filtered_climate, aes(x = psiL_md, y = gc_obs, color = species, shape = "obs midday"), alpha = 0.5, size = pt_size, na.rm = TRUE) +
@@ -449,6 +641,85 @@ p_gc_psi_full_single_daily <- ggplot() +
     color = "species"
   ) + base_theme
 print(p_gc_psi_full_single_daily)
+
+# Single four panels: Absolute Values (Full Daily Range)
+# Observation data
+obs_md <- obs_filtered_climate %>%
+  mutate(
+    source = "Observation",
+    shape_type = "Midday",
+    psi = psiL_md,
+    gc_plot = gc_obs
+  ) %>%
+  select(treatment, species, source, shape_type, psi, gc_plot)
+
+obs_pd <- obs_filtered_climate %>%
+  mutate(
+    source = "Observation",
+    shape_type = "Predawn",
+    psi = psiL_pd,
+    gc_plot = gc_obs
+  ) %>%
+  select(treatment, species, source, shape_type, psi, gc_plot)
+
+# Daily simulation data
+sim_dat <- data_full_model_std %>%
+  mutate(
+    source = "Simulation",
+    shape_type = "Simulation",
+    psi = psiL,
+    gc_plot = gc
+  ) %>%
+  select(treatment, species, source, shape_type, psi, gc_plot)
+
+# Combined data
+plot_dat <- bind_rows(sim_dat, obs_md, obs_pd) %>%
+  mutate(
+    source = factor(
+      source,
+      levels = c("Simulation", "Observation")
+    ),
+    treatment = factor(
+      treatment,
+      levels = c("control", "drought")
+    )
+  )
+
+p_gc_psi_full_single_daily_four <- ggplot(
+  plot_dat,
+  aes(
+    x = psi,
+    y = gc_plot,
+    color = species,
+    shape = shape_type
+  )
+) +
+  geom_point(
+    alpha = 0.5,
+    size = pt_size,
+    na.rm = TRUE
+  ) +
+  facet_grid(source ~ treatment) +
+  scale_color_manual(values = cb_palette) +
+  scale_shape_manual(
+    name = "",
+    values = c(
+      "Midday" = 15,      # solid square
+      "Predawn" = 2,      # open triangle
+      "Simulation" = 16   # solid circle
+    )
+  ) +
+  coord_cartesian(ylim = c(0, 12)) +
+  labs(
+    title = "canopy conductance vs leaf water potential (full daily data)",
+    subtitle = "midday = ■ | predawn = △ | lpj daily simulated = ●",
+    x = expression(Psi["leaf"] ~ "(MPa)"),
+    y = expression(G[c] ~ (m~s^{-1})),
+    color = "species"
+  ) +
+  base_theme
+
+print(p_gc_psi_full_single_daily_four)
 
 # Single Panel 6: Standardized Values (Full Daily Range)
 p_gc_rel_full_single_daily <- ggplot() +
@@ -476,6 +747,90 @@ p_gc_rel_full_single_daily <- ggplot() +
     color = "species"
   ) + base_theme
 print(p_gc_rel_full_single_daily)
+
+# Single four panels: Standardized Values (Full Daily Range)
+# Observation data
+obs_md <- data_obs_full_std %>%
+  filter(psiL_label == "midday") %>%
+  mutate(
+    source = "Observation",
+    shape_type = "Midday",
+    gc_plot = gc_rel
+  ) %>%
+  select(treatment, species, source, shape_type, psiL, gc_plot)
+
+obs_pd <- data_obs_full_std %>%
+  filter(psiL_label == "predawn") %>%
+  mutate(
+    source = "Observation",
+    shape_type = "Predawn",
+    gc_plot = gc_rel
+  ) %>%
+  select(treatment, species, source, shape_type, psiL, gc_plot)
+
+# Simulation data
+sim_dat <- data_full_model_std %>%
+  mutate(
+    source = "Simulation",
+    shape_type = "Simulation",
+    gc_plot = gc_rel_mod
+  ) %>%
+  select(treatment, species, source, shape_type, psiL, gc_plot)
+
+# Combined data
+plot_dat <- bind_rows(sim_dat, obs_md, obs_pd) %>%
+  mutate(
+    source = factor(
+      source,
+      levels = c("Simulation", "Observation")
+    ),
+    treatment = factor(
+      treatment,
+      levels = c("control", "drought")
+    )
+  )
+
+p_gc_rel_full_single_daily_four <- ggplot(
+  plot_dat,
+  aes(
+    x = psiL,
+    y = gc_plot,
+    color = species,
+    shape = shape_type
+  )
+) +
+  geom_point(
+    alpha = 0.5,
+    size = pt_size,
+    na.rm = TRUE
+  ) +
+  facet_grid(source ~ treatment) +
+  scale_color_manual(values = cb_palette) +
+  scale_shape_manual(
+    name = "",
+    values = c(
+      "Midday" = 15,      # solid square
+      "Predawn" = 2,      # open triangle
+      "Simulation" = 16   # solid circle
+    )
+  ) +
+  scale_y_continuous(
+    breaks = seq(0, 1, 0.2)
+  ) +
+  coord_cartesian(ylim = c(0, 1)) +
+  labs(
+    title = "standardized canopy conductance vs leaf water potential (full daily data)",
+    subtitle = paste0(
+      "true min-max per species × treatment × psiL_label\n",
+      "midday = ■ | predawn = △ | lpj daily simulated = ●"
+    ),
+    x = expression(Psi["leaf"] ~ "(MPa)"),
+    y = expression(G[c] / G[cmax]),
+    color = "species"
+  ) +
+  base_theme
+
+print(p_gc_rel_full_single_daily_four)
 
 # ==============================================================================
 # 7c. THEIL-SEN SLOPE — SIMULATED DATA (absolute & relative)
@@ -548,7 +903,6 @@ p_ts_rel <- ggplot(ts_rel, aes(x = species, y = ts_slope, fill = species)) +
   ) + base_theme
 
 print(p_ts_rel)
-
 
 # ==============================================================================
 # 8. BINNED MODELLED Gc vs PsiL (LPJ ONLY, NO OBSERVED DATA)

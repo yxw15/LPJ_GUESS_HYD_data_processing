@@ -66,7 +66,8 @@ species_map <- tribble(
 #               otherwise = literal column name (e.g. "det_plant" for stand-level outputs)
 var_files <- tribble(
   ~file,              ~var_name,        ~col_name,
-  "det_plant.out",    "ET",             "det_plant",
+  "det_plant.out",    "ET_plant",       "det_plant",
+  "det_total.out",    "ET_total",       "det_total",
   "dgc.out",          "Gc",             "species",
   "dpsileaf.out",     "psi_leaf",       "species",
   "dpsisoil.out",     "psi_soil",       "species",

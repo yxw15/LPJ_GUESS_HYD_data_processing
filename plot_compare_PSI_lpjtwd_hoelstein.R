@@ -36,9 +36,9 @@ dir.create("Figures/lpj_guess_stem_storage/PSI", recursive = TRUE, showWarnings 
 # ==========================================================================
 
 # LPJ Model Output (Already in MPa)
-lpj_raw <- read.csv("lpj_guess/lpj_guess_stem_storage/lpj_control_drought_ET_Gc_psi_leaf_psi_soil_psi_xylem_hydraulic_lag_kappy_s_min_mort_mort_cav_mort_greff_mort_min_stem_diameter_stem_rwc_twd.csv") %>%
+lpj_raw <- read.csv("lpj_guess/lpj_guess_stem_storage/lpj_control_drought_ET_plant_ET_total_Gc_psi_leaf_psi_soil_psi_xylem_hydraulic_lag_kappy_s_min_mort_mort_cav_mort_greff_mort_min_stem_diameter_stem_rwc_twd.csv") %>%
   mutate(date = as.Date(date), month = month(date)) %>%
-  filter(month >= 6 & month <= 9) %>%
+  # filter(month >= 6 & month <= 9) %>%
   filter(!is.na(psi_leaf), !is.na(psi_xylem), !is.na(psi_soil), !is.na(species), !is.na(treatment)) %>%
   mutate(species = factor(species, levels = species_levels)) %>%
   select(date, species, treatment, psi_soil_model = psi_soil, psi_xylem_model = psi_xylem, psi_leaf_model = psi_leaf)
@@ -49,7 +49,7 @@ obs_soil <- bind_rows(
   read.csv("SCCII/psiS_hoelstein_control.csv") %>% mutate(treatment = "control")
 ) %>%
   mutate(date = as.Date(date), month = month(date)) %>%
-  filter(month >= 6 & month <= 9 & !is.na(psiS_mean)) %>%
+  # filter(month >= 6 & month <= 9 & !is.na(psiS_mean)) %>%
   mutate(psi_soil_obs = psiS_mean / 1000) %>% 
   select(date, treatment, psi_soil_obs)
 
@@ -59,7 +59,7 @@ obs_leaf_raw <- bind_rows(
   read.csv("SCCII/psiL_hoelstein_control.csv") %>% mutate(treatment = "control")
 ) %>%
   mutate(date = as.Date(date), month = month(date)) %>%
-  filter(month >= 6 & month <= 9) %>%
+  # filter(month >= 6 & month <= 9) %>%
   rename(species = species_name) %>%
   mutate(species = factor(species, levels = species_levels))
 
